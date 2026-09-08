@@ -106,12 +106,11 @@ bud_node *hyle_bud_form(
 	}
 
 	for (const hyle_schema_desc_t *d = schema; d && d->key; d++) {
-		if (strcmp(d->key, "id") == 0 || strcmp(d->key, "owner") == 0 ||
-		    strcmp(d->key, "song_source") == 0)
+		if (strcmp(d->key, "id") == 0)
 			continue;
 		if (!d->writable)
 			continue;
-		if (d->kind >= 3 || d->kind == 5) /* exclude computed or inverse */
+		if (d->kind == HYLE_KIND_EXCLUDE || d->kind >= 3 || d->kind == 5) /* exclude computed or inverse */
 			continue;
 
 		const char *label = hyle_bud_field_label(d->key, label_buf, sizeof(label_buf));
@@ -274,9 +273,9 @@ bud_node *hyle_bud_form(
 			long budget = HYLE_BUD_PICK_QS_BUDGET;
 
 			for (const hyle_schema_desc_t *d = schema; d && d->key; d++) {
-				if (strcmp(d->key, "id") == 0 || strcmp(d->key, "owner") == 0)
+				if (strcmp(d->key, "id") == 0)
 					continue;
-				if (!d->writable || d->kind >= 3 || d->kind == 5)
+				if (!d->writable || d->kind == HYLE_KIND_EXCLUDE || d->kind >= 3 || d->kind == 5)
 					continue;
 				if (d->file && !strstr(d->file, ".txt") && !strstr(d->file, ".html"))
 					continue;

@@ -108,50 +108,34 @@ static bud_node *hyle_bud_checkbox_fieldset(
 
 /* ── Multi-select dropdown widget (SSR-first, WASM-enhanced) ──── */
 
-#define HYLE_BUD_MS_MAX 8
-#define HYLE_BUD_MS_MAX_OPTS 1024
-
-typedef struct {
-	const char *key;                    /* field key (name=key) */
-	const char *label;                  /* field label ("All {label}s") */
-	bud_node *search;                   /* data-hyle-ms-search input */
-	bud_node *summary_values;           /* data-hyle-ms-values span */
-	bud_node *options_container;        /* data-hyle-ms-options div */
-	hyle_bud_option_t opts_copy[HYLE_BUD_MS_MAX_OPTS]; /* persistent copy */
-	const hyle_bud_option_t *opts;
-	int noptions;
-	bud_node *option_rows[HYLE_BUD_MS_MAX_OPTS];
-	bud_node *checkboxes[HYLE_BUD_MS_MAX_OPTS];
-	char checked[HYLE_BUD_MS_MAX_OPTS]; /* 0/1 bitmap, initialized from cur */
-} hyle_bud_ms_t;
-
-static hyle_bud_ms_t g_ms[HYLE_BUD_MS_MAX];
-static int g_ms_count = 0;
-
-/* ── Single-select dropdown widget registry ───────────────────── */
-
-#define HYLE_BUD_SS_MAX 8
-
-typedef struct {
-	const char *key;
-	const char *label;
-	bud_node *search;
-	bud_node *summary_values;
-	bud_node *options_container;
-	hyle_bud_option_t opts_copy[HYLE_BUD_MS_MAX_OPTS];
-	const hyle_bud_option_t *opts;
-	int noptions;
-	bud_node *option_rows[HYLE_BUD_MS_MAX_OPTS];
-	bud_node *radios[HYLE_BUD_MS_MAX_OPTS];
-} hyle_bud_ss_t;
-
-static hyle_bud_ss_t g_ss[HYLE_BUD_SS_MAX];
-static int g_ss_count = 0;
-
 void hyle_bud_ms_reset(void)
 {
-	g_ms_count = 0;
-	g_ss_count = 0;
+}
+
+static bud_node *find_closest_with_attr(bud_node *node, const char *attr_name)
+{
+	bud_node *curr = node;
+	while (curr) {
+		if (bud_get_attr(curr, attr_name))
+			return curr;
+		curr = bud_node_parent(curr);
+	}
+	return NULL;
+}
+
+static bud_node *find_descendant_with_attr(bud_node *node, const char *attr_name)
+{
+	if (!node)
+		return NULL;
+	if (bud_get_attr(node, attr_name))
+		return node;
+	for (size_t i = 0; i < bud_node_child_count(node); i++) {
+		bud_node *found = find_descendant_with_attr(
+		        (bud_node *)bud_node_child(node, i), attr_name);
+		if (found)
+			return found;
+	}
+	return NULL;
 }
 
 static const char *ms_ci_substr(const char *haystack, const char *needle)
@@ -181,64 +165,33 @@ static const char *ms_ci_substr(const char *haystack, const char *needle)
 	return NULL;
 }
 
-static void ms_summary_build(
-	char *out, size_t out_sz, const hyle_bud_option_t *opts, int noptions,
-	const char *checked, const char *label)
-{
-	size_t pos = 0;
-	int shown = 0;
-	int i;
-
-	out[0] = '\0';
-	for (i = 0; i < noptions; i++) {
-		int n;
-		if (!checked[i])
-			continue;
-		if (pos + 1 >= out_sz)
-			break;
-		n = snprintf(out + pos, out_sz - pos, "%s%s",
-		             shown ? "; " : "", opts[i].label);
-		if (n < 0 || (size_t)n >= out_sz - pos)
-			break;
-		pos += n;
-		shown = 1;
-	}
-	if (!shown)
-		snprintf(out, out_sz, "All %ss", label);
-}
-
-static int hyle_bud_ms_find_widget(bud_node *target)
-{
-	int i;
-
-	if (!target)
-		return -1;
-	for (i = 0; i < g_ms_count; i++) {
-		int j;
-		if (g_ms[i].search == target)
-			return i;
-		for (j = 0; j < g_ms[i].noptions; j++) {
-			if (g_ms[i].checkboxes[j] == target)
-				return i;
-		}
-	}
-	return -1;
-}
-
 static int hyle_bud_ms_on_search(bud_event *event)
 {
-	int w = hyle_bud_ms_find_widget(event->target);
+	bud_node *details;
+	bud_node *opts_container;
 	const char *needle;
-	int i;
+	size_t count;
+	size_t i;
 
-	if (w < 0)
+	if (!event)
 		return 0;
+	details = find_closest_with_attr(event->target, "data-hyle-ms");
+	if (!details)
+		return 0;
+	opts_container = find_descendant_with_attr(details, "data-hyle-ms-options");
+	if (!opts_container)
+		return 0;
+
 	needle = (const char *)event->user;
 	if (!needle)
 		needle = "";
-	for (i = 0; i < g_ms[w].noptions; i++) {
-		int visible = ms_ci_substr(g_ms[w].opts[i].label, needle) != NULL;
-		bud_patch_attr(g_ms[w].option_rows[i], "class",
+
+	count = bud_node_child_count(opts_container);
+	for (i = 0; i < count; i++) {
+		bud_node *row = (bud_node *)bud_node_child(opts_container, i);
+		const char *lbl = bud_get_attr(row, "data-label");
+		int visible = ms_ci_substr(lbl ? lbl : "", needle) != NULL;
+		bud_patch_attr(row, "class",
 		               visible ? "hyle-ms-option"
 		                       : "hyle-ms-option hyle-ms-hidden");
 	}
@@ -247,24 +200,69 @@ static int hyle_bud_ms_on_search(bud_event *event)
 
 static int hyle_bud_ms_on_change(bud_event *event)
 {
-	int w = hyle_bud_ms_find_widget(event->target);
+	bud_node *details;
+	bud_node *opts_container;
+	bud_node *values_span;
+	bud_node *text_node;
+	const char *label;
 	int now;
-	int k;
+	size_t count;
+	size_t pos = 0;
+	int shown = 0;
 	char summary[4096];
 
-	if (w < 0)
+	if (!event)
 		return 0;
-	for (k = 0; k < g_ms[w].noptions; k++) {
-		if (g_ms[w].checkboxes[k] == event->target)
-			break;
-	}
-	if (k >= g_ms[w].noptions)
+	details = find_closest_with_attr(event->target, "data-hyle-ms");
+	if (!details)
 		return 0;
+	opts_container = find_descendant_with_attr(details, "data-hyle-ms-options");
+	values_span = find_descendant_with_attr(details, "data-hyle-ms-values");
+	if (!opts_container || !values_span)
+		return 0;
+
 	now = event->user && ((const char *)event->user)[0] == '1';
-	g_ms[w].checked[k] = (char)now;
-	ms_summary_build(summary, sizeof(summary), g_ms[w].opts,
-	                 g_ms[w].noptions, g_ms[w].checked, g_ms[w].label);
-	bud_patch_text(g_ms[w].summary_values, summary);
+	bud_set_attr(event->target, "data-checked", now ? "1" : "0");
+
+	summary[0] = '\0';
+	count = bud_node_child_count(opts_container);
+	for (size_t i = 0; i < count; i++) {
+		bud_node *row = (bud_node *)bud_node_child(opts_container, i);
+		bud_node *cb = bud_node_child_count(row) > 0
+		                      ? (bud_node *)bud_node_child(row, 0)
+		                      : NULL;
+		const char *chk = cb ? bud_get_attr(cb, "data-checked") : NULL;
+		int is_chk = 0;
+		if (chk) {
+			is_chk = (chk[0] == '1');
+		} else if (cb && bud_get_attr(cb, "checked")) {
+			is_chk = 1;
+		}
+		if (!is_chk)
+			continue;
+
+		const char *lbl = bud_get_attr(row, "data-label");
+		if (!lbl)
+			lbl = "";
+		if (pos + 1 >= sizeof(summary))
+			break;
+		int n = snprintf(summary + pos, sizeof(summary) - pos, "%s%s",
+		                 shown ? "; " : "", lbl);
+		if (n < 0 || (size_t)n >= sizeof(summary) - pos)
+			break;
+		pos += (size_t)n;
+		shown = 1;
+	}
+
+	if (!shown) {
+		label = bud_get_attr(details, "data-hyle-ms-label");
+		snprintf(summary, sizeof(summary), "All %ss", label ? label : "");
+	}
+
+	text_node = bud_node_child_count(values_span) > 0
+	                    ? (bud_node *)bud_node_child(values_span, 0)
+	                    : values_span;
+	bud_patch_text(text_node, summary);
 	return 0;
 }
 
@@ -277,71 +275,66 @@ bud_node *hyle_bud_multiselect_field(
 {
 	const char *selected[1024];
 	int nselected;
-	hyle_bud_ms_t *w;
 	bud_node *summary;
 	bud_node *summary_text_node;
 	bud_node *search;
 	bud_node *container;
 	bud_node *caption;
 	char summary_text[4096];
+	size_t pos = 0;
+	int shown = 0;
 	int i;
 
-	if (g_ms_count >= HYLE_BUD_MS_MAX)
-		return hyle_bud_checkbox_fieldset(
-		        key, label, current_value, options, noptions);
-
-	w = &g_ms[g_ms_count];
-	g_ms_count++;
-
-	w->key = key;
-	w->label = label;
-	w->opts = w->opts_copy;
-	w->noptions = noptions > HYLE_BUD_MS_MAX_OPTS
-	                      ? HYLE_BUD_MS_MAX_OPTS
-	                      : noptions;
+	if (!options || noptions <= 0)
+		return NULL;
 
 	nselected = hyle_bud_comma_split(current_value, selected, 1024);
-	for (i = 0; i < w->noptions; i++) {
-		w->opts_copy[i].id = options[i].id;
-		w->opts_copy[i].label = options[i].label;
-		w->checked[i] =
-		        (char)hyle_bud_is_selected(selected, nselected, options[i].id);
-		w->option_rows[i] = NULL;
-		w->checkboxes[i] = NULL;
-	}
 
-	ms_summary_build(summary_text, sizeof(summary_text), w->opts,
-	                 w->noptions, w->checked, label);
+	summary_text[0] = '\0';
+	for (i = 0; i < noptions; i++) {
+		int is_sel = hyle_bud_is_selected(selected, nselected, options[i].id);
+		if (!is_sel)
+			continue;
+		if (pos + 1 >= sizeof(summary_text))
+			break;
+		int n = snprintf(summary_text + pos, sizeof(summary_text) - pos, "%s%s",
+		                 shown ? "; " : "", options[i].label ? options[i].label : "");
+		if (n < 0 || (size_t)n >= sizeof(summary_text) - pos)
+			break;
+		pos += (size_t)n;
+		shown = 1;
+	}
+	if (!shown)
+		snprintf(summary_text, sizeof(summary_text), "All %ss", label ? label : "");
 
 	summary_text_node = bud_text(summary_text);
 	summary = bud_tpl(
 		"<span class='hyle-ms-values' data-hyle-ms-values='1'>%node</span>",
 		summary_text_node
 	);
-	w->summary_values = summary_text_node;
 
 	caption = bud_tpl("<span class='hyle-ms-caption'>%s</span>", label ? label : "");
 
 	container = bud_tpl("<div class='hyle-ms-options' data-hyle-ms-options='1'></div>");
-	w->options_container = container;
 
-	for (i = 0; i < w->noptions; i++) {
+	for (i = 0; i < noptions; i++) {
+		int is_sel = hyle_bud_is_selected(selected, nselected, options[i].id);
 		bud_node *cb = bud_tpl(
-			"<input type='checkbox' name='%s' value='%s' %b %bind/>",
+			"<input type='checkbox' name='%s' value='%s' %b data-checked='%s' %bind/>",
 			key ? key : "",
-			w->opts[i].id ? w->opts[i].id : "",
-			w->checked[i] ? "checked" : NULL,
+			options[i].id ? options[i].id : "",
+			is_sel ? "checked" : NULL,
+			is_sel ? "1" : "0",
 			"change", hyle_bud_ms_on_change
 		);
 		bud_node *row = bud_tpl(
-			"<label class='hyle-ms-option'>"
+			"<label class='hyle-ms-option' data-label='%s'>"
 			"  %node %s"
 			"</label>",
+			options[i].label ? options[i].label : "",
 			cb,
-			w->opts[i].label ? w->opts[i].label : ""
+			options[i].label ? options[i].label : ""
 		);
-		w->checkboxes[i] = cb;
-		w->option_rows[i] = row;
 		bud_append(container, row);
 	}
 
@@ -350,7 +343,6 @@ bud_node *hyle_bud_multiselect_field(
 		hyle_bud_tr("Search…"), hyle_bud_tr("Search options"),
 		"input", hyle_bud_ms_on_search
 	);
-	w->search = search;
 
 	return bud_tpl(
 		"<div class='hyle-ms-field'>"
@@ -417,39 +409,33 @@ static bud_node *hyle_bud_reference_select(
 
 /* ── Dropdown single-select widget (SSR-first, WASM-enhanced) ─── */
 
-static int hyle_bud_ss_find_widget(bud_node *target)
-{
-	int i;
-
-	if (!target)
-		return -1;
-	for (i = 0; i < g_ss_count; i++) {
-		int j;
-		if (g_ss[i].search == target)
-			return i;
-		for (j = 0; j < g_ss[i].noptions; j++) {
-			if (g_ss[i].radios[j] == target)
-				return i;
-		}
-	}
-	return -1;
-}
-
 static int hyle_bud_ss_on_search(bud_event *event)
 {
-	int w = hyle_bud_ss_find_widget(event->target);
+	bud_node *details;
+	bud_node *opts_container;
 	const char *needle;
-	int i;
+	size_t count;
+	size_t i;
 
-	if (w < 0)
+	if (!event)
 		return 0;
+	details = find_closest_with_attr(event->target, "data-hyle-ss");
+	if (!details)
+		return 0;
+	opts_container = find_descendant_with_attr(details, "data-hyle-ss-options");
+	if (!opts_container)
+		return 0;
+
 	needle = (const char *)event->user;
 	if (!needle)
 		needle = "";
-	for (i = 0; i < g_ss[w].noptions; i++) {
-		int visible =
-		        ms_ci_substr(g_ss[w].opts[i].label, needle) != NULL;
-		bud_patch_attr(g_ss[w].option_rows[i], "class",
+
+	count = bud_node_child_count(opts_container);
+	for (i = 0; i < count; i++) {
+		bud_node *row = (bud_node *)bud_node_child(opts_container, i);
+		const char *lbl = bud_get_attr(row, "data-label");
+		int visible = ms_ci_substr(lbl ? lbl : "", needle) != NULL;
+		bud_patch_attr(row, "class",
 		               visible ? "hyle-ss-option"
 		                       : "hyle-ss-option hyle-ss-hidden");
 	}
@@ -458,18 +444,30 @@ static int hyle_bud_ss_on_search(bud_event *event)
 
 static int hyle_bud_ss_on_change(bud_event *event)
 {
-	int w = hyle_bud_ss_find_widget(event->target);
-	int k;
+	bud_node *details;
+	bud_node *values_span;
+	bud_node *text_node;
+	bud_node *row;
+	const char *lbl;
 
-	if (w < 0)
+	if (!event)
 		return 0;
-	for (k = 0; k < g_ss[w].noptions; k++) {
-		if (g_ss[w].radios[k] == event->target)
-			break;
-	}
-	if (k < g_ss[w].noptions)
-		bud_patch_text(g_ss[w].summary_values,
-		               g_ss[w].opts[k].label);
+	details = find_closest_with_attr(event->target, "data-hyle-ss");
+	if (!details)
+		return 0;
+	values_span = find_descendant_with_attr(details, "data-hyle-ss-values");
+	if (!values_span)
+		return 0;
+
+	row = bud_node_parent(event->target);
+	lbl = row ? bud_get_attr(row, "data-label") : NULL;
+	if (!lbl)
+		lbl = bud_get_attr(event->target, "value");
+
+	text_node = bud_node_child_count(values_span) > 0
+	                    ? (bud_node *)bud_node_child(values_span, 0)
+	                    : values_span;
+	bud_patch_text(text_node, lbl ? lbl : "");
 	return 0;
 }
 
@@ -480,7 +478,6 @@ bud_node *hyle_bud_reference_select_dropdown(
 	const hyle_bud_option_t *options,
 	int noptions)
 {
-	hyle_bud_ss_t *w;
 	bud_node *summary_text_node;
 	bud_node *summary;
 	bud_node *search;
@@ -490,25 +487,10 @@ bud_node *hyle_bud_reference_select_dropdown(
 	char summary_text[4096];
 	int i;
 
-	if (g_ss_count >= HYLE_BUD_SS_MAX)
-		return hyle_bud_reference_select(key, label, current_value,
-		                                 options, noptions);
+	if (!options || noptions <= 0)
+		return NULL;
 
-	w = &g_ss[g_ss_count];
-	g_ss_count++;
-
-	w->key = key;
-	w->label = label;
-	w->opts = w->opts_copy;
-	w->noptions =
-	        noptions > HYLE_BUD_MS_MAX_OPTS ? HYLE_BUD_MS_MAX_OPTS
-	                                        : noptions;
-
-	for (i = 0; i < w->noptions; i++) {
-		w->opts_copy[i].id = options[i].id;
-		w->opts_copy[i].label = options[i].label;
-		w->option_rows[i] = NULL;
-		w->radios[i] = NULL;
+	for (i = 0; i < noptions; i++) {
 		if (current_value &&
 		    strcmp(current_value, options[i].id) == 0)
 			current_label = options[i].label;
@@ -518,40 +500,37 @@ bud_node *hyle_bud_reference_select_dropdown(
 		snprintf(summary_text, sizeof(summary_text), "%s",
 		         current_label);
 	else
-		snprintf(summary_text, sizeof(summary_text), "All %ss", label);
+		snprintf(summary_text, sizeof(summary_text), "All %ss", label ? label : "");
 
 	summary_text_node = bud_text(summary_text);
 	summary = bud_tpl(
 		"<span class='hyle-ss-values' data-hyle-ss-values='1'>%node</span>",
 		summary_text_node
 	);
-	w->summary_values = summary_text_node;
 
 	caption = bud_tpl("<span class='hyle-ss-caption'>%s</span>", label ? label : "");
 
 	container = bud_tpl("<div class='hyle-ss-options' data-hyle-ss-options='1'></div>");
-	w->options_container = container;
 
-	for (i = 0; i < w->noptions; i++) {
+	for (i = 0; i < noptions; i++) {
 		int sel =
 		        current_value &&
-		        strcmp(current_value, w->opts[i].id) == 0;
+		        strcmp(current_value, options[i].id) == 0;
 		bud_node *radio = bud_tpl(
 			"<input type='radio' name='%s' value='%s' %b %bind/>",
 			key ? key : "",
-			w->opts[i].id ? w->opts[i].id : "",
+			options[i].id ? options[i].id : "",
 			sel ? "checked" : NULL,
 			"change", hyle_bud_ss_on_change
 		);
 		bud_node *row = bud_tpl(
-			"<label class='hyle-ss-option'>"
+			"<label class='hyle-ss-option' data-label='%s'>"
 			"  %node %s"
 			"</label>",
+			options[i].label ? options[i].label : "",
 			radio,
-			w->opts[i].label ? w->opts[i].label : ""
+			options[i].label ? options[i].label : ""
 		);
-		w->radios[i] = radio;
-		w->option_rows[i] = row;
 		bud_append(container, row);
 	}
 
@@ -560,7 +539,6 @@ bud_node *hyle_bud_reference_select_dropdown(
 		hyle_bud_tr("Search…"), hyle_bud_tr("Search options"),
 		"input", hyle_bud_ss_on_search
 	);
-	w->search = search;
 
 	return bud_tpl(
 		"<div class='hyle-ss-field'>"
