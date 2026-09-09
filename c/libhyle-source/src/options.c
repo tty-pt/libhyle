@@ -551,3 +551,98 @@ int hyle_source_ordered_for_each(
 	}
 	return total;
 }
+
+int hyle_source_ordered_find(
+        const char *source_id, const char *partition_val, const char *field,
+        const char *val)
+{
+	if (!source_id || !partition_val || !field || !val)
+		return -1;
+	int total = hyle_source_ordered_count(source_id, partition_val);
+	for (int i = 0; i < total; i++) {
+		const char *fval =
+		        hyle_source_ordered_get_field(source_id, partition_val, i, field);
+		if (fval && strcmp(fval, val) == 0)
+			return i;
+	}
+	return -1;
+}
+
+int hyle_source_ordered_remove_matching(
+        const char *source_id, const char *partition_val, const char *field,
+        const char *val)
+{
+	int idx = hyle_source_ordered_find(source_id, partition_val, field, val);
+	if (idx < 0)
+		return -1;
+	return hyle_source_ordered_remove_and_save(source_id, partition_val, idx);
+}
+
+int hyle_source_ordered_replace_row(
+        const char *source_id, const char *partition_val, int index,
+        const char **names, const char **vals, size_t count)
+{
+	if (!source_id || !partition_val || index < 0 || !names || !vals || count == 0)
+		return -1;
+	const char *key =
+	        hyle_source_ordered_key_at(source_id, partition_val, index);
+	if (!key)
+		return -1;
+	hyle_source_put(source_id, key, names, vals, count);
+	hyle_source_ordered_save(source_id, partition_val);
+	return 0;
+}
+
+const char *hyle_source_get_field(
+        const char *source_id, const char *item_id, const char *field)
+{
+	if (!source_id || !item_id || !field)
+		return NULL;
+	unsigned fhd = hyle_source_get_fields_hd(source_id);
+	if (!fhd)
+		return NULL;
+	return hyle_qmap_get_field_str(fhd, item_id, field);
+}
+
+int hyle_source_set_field(
+        int fd, const char *source_id, const char *item_id, const char *field,
+        const char *value)
+{
+	if (!source_id || !item_id || !field)
+		return -1;
+	unsigned dh = qmap_open(NULL, "row_data", QM_STR, QM_STR, 0x1F, 0);
+	if (!dh)
+		return -1;
+	qmap_put(dh, field, value ? value : "");
+	int rc = hyle_source_update_item(fd, source_id, item_id, dh);
+	qmap_close(dh);
+
+	unsigned fhd = hyle_source_get_fields_hd(source_id);
+	if (fhd)
+		qmap_field_put(fhd, item_id, field, value ? value : "");
+
+	return rc == 0 ? 0 : (fhd ? 0 : rc);
+}
+
+int hyle_source_get_field_int(
+        const char *source_id, const char *item_id, const char *field,
+        int def_val)
+{
+	const char *str = hyle_source_get_field(source_id, item_id, field);
+	if (!str || !str[0])
+		return def_val;
+	char *end = NULL;
+	long v = strtol(str, &end, 10);
+	if (end == str)
+		return def_val;
+	return (int)v;
+}
+
+int hyle_source_set_field_int(
+        int fd, const char *source_id, const char *item_id, const char *field,
+        int val)
+{
+	char buf[32];
+	snprintf(buf, sizeof(buf), "%d", val);
+	return hyle_source_set_field(fd, source_id, item_id, field, buf);
+}
