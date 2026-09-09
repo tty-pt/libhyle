@@ -201,6 +201,41 @@ bud_node *hyle_bud_table_actions(
 /* Full widget (trigger + panel). Returns NULL for an unusable desc. */
 bud_node *hyle_bud_picker_field(const hyle_bud_picker_desc_t *d);
 
+/*
+ * Standalone / Action Picker Component
+ * Encapsulates the picker field, No-JS sibling GET form, preference
+ * preservation, auto-submit attributes, and enclosing POST form.
+ */
+typedef struct {
+	const char *key;
+	const char *label;
+	const char *target;
+	const char *default_id;
+	const char *default_label;
+	const char *get_action;
+	const char *post_action;
+	const char *form_id;
+	const char *csrf_token;
+	const char *submit_label;
+	const char *header_text;
+	const char *cancel_href;
+	const char *cancel_label;
+	const char *hint;
+	const char *scope;
+	const char *search_param;
+	const char *page_param;
+	int auto_submit;
+	int allow_add;
+	const char **pref_names;
+	const int *pref_vals;
+	int n_prefs;
+	bud_node *extra_post_inputs;
+} hyle_bud_action_picker_spec_t;
+
+bud_node *hyle_bud_action_picker(
+        const hyle_bud_action_picker_spec_t *spec,
+        const hyle_bud_picker_view_t *pv);
+
 /* Panel innards + summary span HTML for the fragment route's reset
  * path. Caller owns both buffers. */
 void hyle_bud_picker_slots(const hyle_bud_picker_desc_t *d,

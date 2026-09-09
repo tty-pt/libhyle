@@ -360,4 +360,45 @@ int hyle_source_ordered_sync_form_custom(
     hyle_field_getter_fn get_field,
     void *user);
 
+/*
+ * High-level ordered partition operations (self-persisting)
+ */
+const char *hyle_source_ordered_get_field(
+    const char *source_id, const char *partition_val, int index, const char *field);
+
+int hyle_source_ordered_set_field(
+    const char *source_id, const char *partition_val, int index, const char *field, const char *value);
+
+int hyle_source_ordered_remove_and_save(
+    const char *source_id, const char *partition_val, int index);
+
+int hyle_source_ordered_append_and_save(
+    const char *source_id, const char *partition_val, const char **names, const char **vals, size_t count);
+
+typedef void (*hyle_source_ordered_each_fn)(
+    int index, const char *key, unsigned fields_hd, void *user);
+
+int hyle_source_ordered_for_each(
+    const char *source_id, const char *partition_val,
+    hyle_source_ordered_each_fn fn, void *user);
+
+/*
+ * High-level relation querying (referencing items)
+ */
+size_t hyle_source_find_referencing(
+    const char *source_dataset,
+    const char *ref_field,
+    const char *target_id,
+    const char **ids_out,
+    size_t max);
+
+typedef void (*hyle_source_ref_cb_t)(const char *source_id, void *user);
+
+size_t hyle_source_for_each_referencing(
+    const char *source_dataset,
+    const char *ref_field,
+    const char *target_id,
+    hyle_source_ref_cb_t cb,
+    void *user);
+
 #endif

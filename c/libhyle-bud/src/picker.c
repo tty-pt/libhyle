@@ -711,6 +711,183 @@ bud_node *hyle_bud_filter_scoped(
 	return picker;
 }
 
+bud_node *hyle_bud_action_picker(
+        const hyle_bud_action_picker_spec_t *spec,
+        const hyle_bud_picker_view_t *pv)
+{
+	bud_node *frag = bud_fragment();
+	bud_node *head = NULL, *cancel = NULL, *hint = NULL, *picker = NULL,
+	         *post = NULL;
+	const hyle_bud_picker_entry_t *e = NULL;
+
+	if (!frag || !spec || !spec->key || !spec->target)
+		return NULL;
+
+	if (spec->header_text && spec->header_text[0]) {
+		head = lx_n("div", lx_attr("class", "mb-2 font-medium"),
+		            lx_textf("%s", spec->header_text));
+	}
+
+	if (spec->cancel_href && spec->cancel_href[0]) {
+		cancel = lx_n("a", lx_attr("href", spec->cancel_href),
+		              lx_attr("class", "btn btn-secondary text-xs "
+		                               "mb-3 inline-block"),
+		              lx_textf("%s", spec->cancel_label ? spec->cancel_label
+		                                                : "Cancel"));
+	}
+
+	if (spec->hint && spec->hint[0]) {
+		hint = lx_n("div", lx_attr("class", "text-xs text-muted mb-2"),
+		            lx_textf("%s", spec->hint));
+	}
+
+	char form_id_buf[192];
+	char search_param_buf[192];
+	char page_param_buf[192];
+	const char *sp = spec->search_param;
+	const char *pp = spec->page_param;
+
+	if (spec->scope && spec->scope[0]) {
+		snprintf(
+		        form_id_buf, sizeof(form_id_buf), "pickq-%s__%s",
+		        spec->key, spec->scope);
+		if (!sp) {
+			snprintf(
+			        search_param_buf, sizeof(search_param_buf),
+			        "pick_q_%s__%s", spec->key, spec->scope);
+			sp = search_param_buf;
+		}
+		if (!pp) {
+			snprintf(
+			        page_param_buf, sizeof(page_param_buf),
+			        "pick_page_%s__%s", spec->key, spec->scope);
+			pp = page_param_buf;
+		}
+	} else {
+		snprintf(
+		        form_id_buf, sizeof(form_id_buf), "pickq-%s",
+		        spec->key);
+	}
+
+	bud_node *hiddens = bud_fragment();
+	if (spec->n_prefs > 0 && spec->pref_names && spec->pref_vals) {
+		for (int k = 0; k < spec->n_prefs; k++) {
+			bud_append(
+			        hiddens,
+			        bud_hidden_input_int(spec->pref_names[k], spec->pref_vals[k]));
+		}
+	}
+	bud_node *sibling =
+	        lx_n("form", lx_attr("id", form_id_buf),
+	             lx_attr("action",
+	                     spec->get_action ? spec->get_action : ""),
+	             lx_attr("method", "GET"),
+	             lx_attr("class", "pick-sibling-form"), lx_node(hiddens));
+
+	if (pv) {
+		for (int i = 0; i < pv->n; i++) {
+			if (pv->entries[i].key &&
+			    strcmp(pv->entries[i].key, spec->key) == 0)
+			{
+				e = &pv->entries[i];
+				break;
+			}
+		}
+		if (!e && pv->n > 0)
+			e = &pv->entries[0];
+	}
+
+	hyle_bud_option_t default_sel;
+	const hyle_bud_option_t *sel = NULL;
+	int nsel = 0;
+
+	if (spec->default_id && spec->default_id[0]) {
+		default_sel.id = spec->default_id;
+		default_sel.label =
+		        (spec->default_label && spec->default_label[0])
+		                ? spec->default_label
+		                : spec->default_id;
+		sel = &default_sel;
+		nsel = 1;
+	} else if (e) {
+		sel = e->sel;
+		nsel = e->nsel;
+	}
+
+	int allow_add = spec->allow_add ? (e ? e->allow_add : 1) : 0;
+	char url_tmpl_buf[512];
+	snprintf(
+	        url_tmpl_buf, sizeof(url_tmpl_buf),
+	        "/pick/%s/"
+	        "options?key=%s&multi=0&add=%d&label=&sel={sel}&pick_q_%s={q}&pick_"
+	        "page_%s={page}",
+	        (e && e->target) ? e->target : spec->target, spec->key,
+	        allow_add ? 1 : 0,
+	        spec->key, spec->key);
+
+	hyle_bud_picker_desc_t d = {
+		.key = spec->key,
+		.label = spec->label ? spec->label : spec->key,
+		.source = (e && e->target) ? e->target : spec->target,
+		.multi = 0,
+		.get_form_id = form_id_buf,
+		.url_tmpl = url_tmpl_buf,
+		.page_opts = e ? e->page_opts : NULL,
+		.npage = e ? e->npage : 0,
+		.sel = sel,
+		.nsel = nsel,
+		.q = (e && e->q) ? e->q : "",
+		.page = e ? e->page : 0,
+		.per_page = (e && e->per_page > 0) ? e->per_page : 15,
+		.total = e ? e->total : 0,
+		.search_param = sp,
+		.page_param = pp,
+		.allow_add = allow_add
+	};
+
+	picker = hyle_bud_picker_field(&d);
+	if (picker && spec->auto_submit) {
+		bud_set_attr(picker, "data-hyle-auto-submit", "1");
+	}
+
+	post = lx_n("form",
+	            lx_attr("id", spec->form_id ? spec->form_id : "pick-post"),
+	            lx_attr("method", "post"),
+	            lx_attr("class", "flex-1 min-w-0"),
+	            lx_attr("action",
+	                    spec->post_action ? spec->post_action : ""));
+
+	if (spec->csrf_token) {
+		bud_append(post, bud_hidden_input("csrf_token", spec->csrf_token));
+	}
+
+	if (spec->extra_post_inputs) {
+		bud_append(post, spec->extra_post_inputs);
+	}
+
+	bud_append(
+	        post,
+	        lx_n("div",
+	             lx_attr("class",
+	                     "flex gap-2 items-center flex-1 min-w-0"),
+	             picker ? lx_node(picker) : lx_none(),
+	             lx_submit(spec->submit_label ? spec->submit_label : "Add",
+	                       "btn btn-primary hyle-picker-submit")));
+
+	if (head)
+		bud_append(frag, head);
+	if (cancel)
+		bud_append(frag, cancel);
+	if (hint)
+		bud_append(frag, hint);
+	if (sibling)
+		bud_append(frag, sibling);
+	if (post)
+		bud_append(frag, post);
+
+	return frag;
+}
+
 #ifndef __wasm__
 #include <hyle-source/hyle_source.h>
 

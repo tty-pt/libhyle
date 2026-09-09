@@ -1062,6 +1062,75 @@ const char *hyle_source_inv_key_at(
 	return qmap_get_key(fhd, buf[index]);
 }
 
+size_t hyle_source_find_referencing(
+        const char *source_dataset,
+        const char *ref_field,
+        const char *target_id,
+        const char **ids_out,
+        size_t max)
+{
+	if (!source_dataset || !ref_field || !target_id || !ids_out || max == 0)
+		return 0;
+
+	hyle_source_def_t *src_def = hyle_source_find(source_dataset);
+	if (!src_def || !src_def->fields_hd)
+		return 0;
+
+	uint32_t target_pos = QM_MISS;
+	const char *target_dataset = NULL;
+	if (src_def->fields) {
+		for (size_t i = 0; i < src_def->field_count; i++) {
+			if (src_def->fields[i].name &&
+			    strcmp(src_def->fields[i].name, ref_field) == 0)
+			{
+				target_dataset = src_def->fields[i].target_source;
+				break;
+			}
+		}
+	}
+	if (!target_dataset && src_def->defs) {
+		for (int i = 0; i < src_def->def_count; i++) {
+			if (src_def->defs[i].key &&
+			    strcmp(src_def->defs[i].key, ref_field) == 0)
+			{
+				target_dataset = src_def->defs[i].ref_source;
+				break;
+			}
+		}
+	}
+
+	if (target_dataset) {
+		unsigned tgt_fhd = hyle_source_get_fields_hd(target_dataset);
+		if (tgt_fhd)
+			target_pos = qmap_pos(tgt_fhd, target_id);
+	}
+
+	if (target_pos == QM_MISS)
+		target_pos = qmap_pos(src_def->fields_hd, target_id);
+
+	if (target_pos == QM_MISS)
+		return 0;
+
+	return hyle_source_inv_keys(source_dataset, ref_field, target_pos, ids_out, max);
+}
+
+size_t hyle_source_for_each_referencing(
+        const char *source_dataset,
+        const char *ref_field,
+        const char *target_id,
+        hyle_source_ref_cb_t cb,
+        void *user)
+{
+	const char *keys[256];
+	size_t n = hyle_source_find_referencing(
+	        source_dataset, ref_field, target_id, keys, 256);
+	if (cb) {
+		for (size_t i = 0; i < n; i++)
+			cb(keys[i], user);
+	}
+	return n;
+}
+
 const char *hyle_qmap_get_field_str(
         unsigned hd,
         const char *id,
