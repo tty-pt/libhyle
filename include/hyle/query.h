@@ -10,6 +10,7 @@
 typedef struct {
 	const char *field;
 	const char *value;
+	const char *op; /* NULL, "and", or "or" — from <field>_op URL param */
 } hyle_field_filter_t;
 
 typedef struct {
@@ -40,6 +41,14 @@ int hyle_parse_query(char *query_str, hyle_query_t *out);
 
 /* Free dynamically allocated members of a parsed query. */
 void hyle_query_clear(hyle_query_t *q);
+
+/* Case-insensitive, accent-sensitive substring match (stoma_fold). */
+int hyle_ci_substr(const char *str, const char *sub);
+
+/* Case-insensitive, accent-sensitive substring match with punctuation
+ * normalization (Google-like): replaces punctuation except apostrophes and
+ * hyphens within words with spaces, collapses whitespace. */
+int hyle_ci_substr_punct(const char *str, const char *sub);
 
 /*
  * Filter rows: emit matching row IDs to output->row_hd.

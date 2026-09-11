@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <unistd.h>
+#include <stoma/stoma.h>
 #include "hyle/query.h"
 #include "hyle/field.h"
 #include <ttypt/qmap.h>
@@ -14,24 +15,28 @@
 static const char *row_field_val(const hyle_row_set_t *rows,
 	const char *id, const char *field)
 {
-	char key[1024];
-	snprintf(key, sizeof(key), "%s:%s", id, field);
+	char key[512];
+	size_t id_len = strlen(id);
+	size_t field_len = strlen(field);
+	if (id_len + 1 + field_len >= sizeof(key))
+		return NULL;
+	memcpy(key, id, id_len);
+	key[id_len] = ':';
+	memcpy(key + id_len + 1, field, field_len);
+	key[id_len + 1 + field_len] = '\0';
 	return (const char *)qmap_get(rows->fields_hd, key);
 }
 
-static int ci_substr(const char *str, const char *sub)
+static int ci_substr_raw(const char *str, const char *sub)
 {
-	if (!sub || !*sub)
-		return 1;
-	if (!str)
-		return 0;
-
 	size_t slen = strlen(str);
 	size_t nlen = strlen(sub);
+	size_t i;
+
 	if (nlen > slen)
 		return 0;
 
-	for (size_t i = 0; i <= slen - nlen; i++) {
+	for (i = 0; i <= slen - nlen; i++) {
 		size_t j;
 		for (j = 0; j < nlen; j++) {
 			if (tolower((unsigned char)str[i + j])
@@ -42,6 +47,181 @@ static int ci_substr(const char *str, const char *sub)
 			return 1;
 	}
 	return 0;
+}
+
+static int ci_substr_folded(const char *str, const char *fsub, size_t nlen, const char *raw_sub)
+{
+	char   fstr[4096];
+	size_t slen;
+	size_t i;
+
+	if (nlen == 0)
+		return 1;
+	if (!str)
+		return 0;
+
+	if (stoma_fold(fstr, sizeof(fstr), str) < 0)
+		return raw_sub ? ci_substr_raw(str, raw_sub) : 0;
+
+	slen = strlen(fstr);
+	if (nlen > slen)
+		return 0;
+
+	for (i = 0; i <= slen - nlen; i++) {
+		size_t j;
+		for (j = 0; j < nlen; j++) {
+			if (fstr[i + j] != fsub[j])
+				break;
+		}
+		if (j == nlen)
+			return 1;
+	}
+	return 0;
+}
+
+static int ci_substr(const char *str, const char *sub)
+{
+	char   fstr[4096];
+	char   fsub[256];
+	size_t slen;
+	size_t nlen;
+	size_t i;
+
+	if (!sub || !*sub)
+		return 1;
+	if (!str)
+		return 0;
+
+	if (stoma_fold(fsub, sizeof(fsub), sub) < 0 ||
+	    stoma_fold(fstr, sizeof(fstr), str) < 0)
+		return ci_substr_raw(str, sub);
+
+	slen = strlen(fstr);
+	nlen = strlen(fsub);
+	if (nlen > slen)
+		return 0;
+
+	for (i = 0; i <= slen - nlen; i++) {
+		size_t j;
+		for (j = 0; j < nlen; j++) {
+			if (fstr[i + j] != fsub[j])
+				break;
+		}
+		if (j == nlen)
+			return 1;
+	}
+	return 0;
+}
+
+int hyle_ci_substr(const char *str, const char *sub)
+{
+	return ci_substr(str, sub);
+}
+
+/* Punctuation normalization (Google-like): most punctuation → space,
+ * apostrophes are stripped so "don't" ↔ "dont" match, hyphens → space so
+ * "well-known" ↔ "well known" match. Collapse whitespace. */
+static void punct_normalize(char *out, size_t outsz, const char *in)
+{
+	size_t in_len = strlen(in);
+	size_t out_pos = 0;
+	size_t i;
+
+	if (outsz == 0)
+		return;
+
+	for (i = 0; i < in_len && out_pos + 1 < outsz; i++) {
+		unsigned char c = (unsigned char)in[i];
+		int is_alnum = isalnum(c) || c >= 0x80;
+
+		if (is_alnum) {
+			out[out_pos++] = (char)c;
+		} else if (c == '\'') {
+			/* Strip apostrophes entirely (“don't” → “dont”). */
+			continue;
+		} else {
+			if (out_pos == 0 || out[out_pos - 1] != ' ') {
+				if (out_pos + 1 < outsz)
+					out[out_pos++] = ' ';
+			}
+		}
+	}
+
+	while (out_pos > 0 && out[out_pos - 1] == ' ')
+		out_pos--;
+
+	out[out_pos] = '\0';
+}
+
+static int ci_substr_punct_folded(const char *str, const char *fsub, size_t nlen)
+{
+	char fstr[4096];
+	size_t slen, i;
+
+	if (nlen == 0)
+		return 1;
+	if (!str)
+		return 0;
+
+	punct_normalize(fstr, sizeof(fstr), str);
+
+	if (stoma_fold(fstr, sizeof(fstr), fstr) < 0)
+		return 0;
+
+	slen = strlen(fstr);
+	if (nlen > slen)
+		return 0;
+
+	for (i = 0; i <= slen - nlen; i++) {
+		size_t j;
+		for (j = 0; j < nlen; j++) {
+			if (fstr[i + j] != fsub[j])
+				break;
+		}
+		if (j == nlen)
+			return 1;
+	}
+	return 0;
+}
+
+static int ci_substr_punct(const char *str, const char *sub)
+{
+	char fstr[4096];
+	char fsub[256];
+	size_t slen, nlen, i;
+
+	if (!sub || !*sub)
+		return 1;
+	if (!str)
+		return 0;
+
+	punct_normalize(fsub, sizeof(fsub), sub);
+	punct_normalize(fstr, sizeof(fstr), str);
+
+	if (stoma_fold(fsub, sizeof(fsub), fsub) < 0 ||
+	    stoma_fold(fstr, sizeof(fstr), fstr) < 0)
+		return 0;
+
+	slen = strlen(fstr);
+	nlen = strlen(fsub);
+	if (nlen > slen)
+		return 0;
+
+	for (i = 0; i <= slen - nlen; i++) {
+		size_t j;
+		for (j = 0; j < nlen; j++) {
+			if (fstr[i + j] != fsub[j])
+				break;
+		}
+		if (j == nlen)
+			return 1;
+	}
+	return 0;
+}
+
+int hyle_ci_substr_punct(const char *str, const char *sub)
+{
+	return ci_substr_punct(str, sub);
 }
 
 /* ---- multi-ref token match ---- */
@@ -101,6 +281,41 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 	(void)ctx;
 	output->fields_hd = input->fields_hd;
 
+	typedef struct {
+		char folded[256];
+		size_t folded_len;
+		int is_multi;
+		const char *raw_value;
+	} pre_filter_t;
+
+	pre_filter_t pre_filters[filter_count > 0 ? filter_count : 1];
+	for (unsigned i = 0; i < filter_count; i++) {
+		pre_filters[i].raw_value = filters[i].value;
+		pre_filters[i].is_multi = is_multi_ref(fields, field_count, filters[i].field);
+		if (!pre_filters[i].is_multi && filters[i].value && *filters[i].value) {
+			if (stoma_fold(pre_filters[i].folded, sizeof(pre_filters[i].folded), filters[i].value) >= 0) {
+				pre_filters[i].folded_len = strlen(pre_filters[i].folded);
+			} else {
+				pre_filters[i].folded[0] = '\0';
+				pre_filters[i].folded_len = 0;
+			}
+		} else {
+			pre_filters[i].folded[0] = '\0';
+			pre_filters[i].folded_len = 0;
+		}
+	}
+
+	char fq[256] = "";
+	size_t fq_len = 0;
+	int has_q = (q && *q);
+	if (has_q) {
+		punct_normalize(fq, sizeof(fq), q);
+		if (stoma_fold(fq, sizeof(fq), fq) >= 0)
+			fq_len = strlen(fq);
+		else
+			has_q = 0;
+	}
+
 	uint32_t cur = qmap_iter(input->row_hd, NULL, 0);
 	const void *k;
 	const void *v;
@@ -115,11 +330,13 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 				filters[i].field);
 			int ok;
 
-			if (is_multi_ref(fields, field_count,
-				    filters[i].field))
-				ok = token_match(fv, filters[i].value);
+			if (pre_filters[i].is_multi)
+				ok = token_match(fv, pre_filters[i].raw_value);
+			else if (pre_filters[i].folded_len > 0)
+				ok = ci_substr_folded(fv, pre_filters[i].folded,
+					pre_filters[i].folded_len, pre_filters[i].raw_value);
 			else
-				ok = ci_substr(fv, filters[i].value);
+				ok = ci_substr(fv, pre_filters[i].raw_value);
 			if (!ok) {
 				match = 0;
 				break;
@@ -128,28 +345,44 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 		if (!match)
 			continue;
 
-		if (q && *q) {
-			int found = ci_substr(row_id, q);
-			if (!found) {
-				char prefix[1024];
-				snprintf(prefix, sizeof(prefix), "%s:", row_id);
-				size_t plen = strlen(prefix);
-
-				uint32_t fc = qmap_iter(
-					input->fields_hd, NULL, 0);
-				const void *fk;
-				const void *fv2;
-				while (qmap_next(&fk, &fv2, fc)) {
-					const char *key = (const char *)fk;
-					if (strncmp(key, prefix, plen) != 0)
+		if (has_q) {
+			int found = ci_substr_punct_folded(row_id, fq, fq_len);
+			if (!found && fields && field_count > 0) {
+				for (size_t fi = 0; fi < field_count; fi++) {
+					const char *fn = fields[fi].name;
+					if (!fn || strcmp(fn, "id") == 0)
 						continue;
-					if (ci_substr(
-						(const char *)fv2, q)) {
+					const char *fv2 = row_field_val(input, row_id, fn);
+					if (fv2 && ci_substr_punct_folded(fv2, fq, fq_len)) {
 						found = 1;
 						break;
 					}
 				}
-				qmap_fin(fc);
+			} else if (!found) {
+				char prefix[256];
+				size_t id_len = strlen(row_id);
+				if (id_len + 2 < sizeof(prefix)) {
+					memcpy(prefix, row_id, id_len);
+					prefix[id_len] = ':';
+					prefix[id_len + 1] = '\0';
+					size_t plen = id_len + 1;
+
+					uint32_t fc = qmap_iter(
+						input->fields_hd, NULL, 0);
+					const void *fk;
+					const void *fv2;
+					while (qmap_next(&fk, &fv2, fc)) {
+						const char *key = (const char *)fk;
+						if (strncmp(key, prefix, plen) != 0)
+							continue;
+						if (ci_substr_punct_folded(
+							(const char *)fv2, fq, fq_len)) {
+							found = 1;
+							break;
+						}
+					}
+					qmap_fin(fc);
+				}
 			}
 			if (!found)
 				continue;
