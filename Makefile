@@ -25,5 +25,5 @@ zig-test:
 	cd zig-bindings && $(ZIG) build test
 
 test: all
-	LD_LIBRARY_PATH=./lib:../libqmap/lib:../stoma/lib ./bin/hyle_test${EXE}
+	LD_LIBRARY_PATH=./lib:../libqmap/lib:../libstoma/lib ./bin/hyle_test${EXE}
 	$(MAKE) zig-test
