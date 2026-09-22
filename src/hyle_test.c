@@ -5,7 +5,7 @@
 #include <locale.h>
 #include <stddef.h>
 #include "hyle/hyle.h"
-#include "hyle/source.h"
+#include "hyle/registry.h"
 #include <ttypt/qmap.h>
 
 static int failures = 0;
@@ -1048,12 +1048,12 @@ static const hyle_field_t test_fields[] = {
 	  0, NULL, 0 },
 };
 
-static const hyle_source_schema_t test_schema = {
+static const hyle_blueprint_schema_t test_schema = {
 	"test.songs", "id", test_fields, 8, 0,
 };
 
 static const hyle_blueprint_t test_bp = {
-	(hyle_source_schema_t *)&test_schema,
+	(hyle_blueprint_schema_t *)&test_schema,
 	1,
 };
 
@@ -1477,7 +1477,7 @@ static void test_purify_null_params(void)
 }
 
 /* ================================================================
- * Phase 6 — full-text index (stoma) via hyle_source_query
+ * Phase 6 — full-text index (stoma) via hyle_registry_query
  * ================================================================ */
 
 static const hyle_field_t fts_fields[] = {
@@ -1492,7 +1492,7 @@ static void fts_put_row(
 {
 	const char *names[3] = { "title", "author", "year" };
 	const char *values[3] = { title, author, year };
-	hyle_source_put("fts.test", id, names, values, 3);
+	hyle_registry_put("fts.test", id, names, values, 3);
 }
 
 static void fts_query_src(
@@ -1505,7 +1505,7 @@ static void fts_query_src(
 	memset(&q, 0, sizeof(q));
 	q.filters = filters;
 	q.filter_count = 1;
-	hyle_source_query(src, &q, out, NULL);
+	hyle_registry_query(src, &q, out, NULL);
 }
 
 static void
@@ -1519,7 +1519,7 @@ static void test_fts(void)
 	hyle_row_set_t out;
 
 	printf("\n=== full-text index (stoma) ===\n");
-	hyle_source_register("fts.test", fts_fields, 3, 0, 0, NULL);
+	hyle_registry_register("fts.test", fts_fields, 3, 0, 0, NULL);
 
 	fts_put_row("song1", "Starlight of the night", "Alice Smith", "2020");
 	fts_put_row("song2", "Station one", "Bob Jones", "2021");
@@ -1557,7 +1557,7 @@ static void test_fts(void)
 		memset(&q, 0, sizeof(q));
 		q.filters = filters;
 		q.filter_count = 2;
-		hyle_source_query("fts.test", &q, &out, NULL);
+		hyle_registry_query("fts.test", &q, &out, NULL);
 		CHECK_IDS(out, "song1", "song3");
 		qmap_close(out.row_hd);
 	}
@@ -1573,7 +1573,7 @@ static void test_fts(void)
 		memset(&q, 0, sizeof(q));
 		q.filters = filters;
 		q.filter_count = 2;
-		hyle_source_query("fts.test", &q, &out, NULL);
+		hyle_registry_query("fts.test", &q, &out, NULL);
 		CHECK_IDS(out, "song1", "song3");
 		qmap_close(out.row_hd);
 	}
@@ -1589,7 +1589,7 @@ static void test_fts(void)
 	qmap_close(out.row_hd);
 
 	/* delete → gone */
-	hyle_source_del("fts.test", "song2");
+	hyle_registry_del("fts.test", "song2");
 	fts_query_filter("title", "st", &out);
 	CHECK(qmap_count(out.row_hd, NULL) == 0, "deleted row gone");
 	qmap_close(out.row_hd);
@@ -1630,15 +1630,15 @@ static void test_fts_record(void)
 	const char *names[2] = { "title", "author" };
 	const char *values[2] = { "Starlight over record", "Dora" };
 
-	printf("\n=== record-aware hyle_source_put (FTS) ===\n");
+	printf("\n=== record-aware hyle_registry_put (FTS) ===\n");
 
 	rec = qmap_record_register("fts.rec", sizeof(fts_rec_t), rec_fields, 2);
 	CHECK(rec != QM_MISS, "record layout registered");
 
-	fhd = hyle_source_register("fts.rec", fields, 2, rec, 0, NULL);
+	fhd = hyle_registry_register("fts.rec", fields, 2, rec, 0, NULL);
 	CHECK(fhd != 0, "record source registered");
 
-	hyle_source_put("fts.rec", "r1", names, values, 2);
+	hyle_registry_put("fts.rec", "r1", names, values, 2);
 
 	/* record branch wrote via qmap_field_put → struct field set */
 	CHECK(strcmp(qmap_field_get(fhd, "r1", "title"),
@@ -1652,7 +1652,7 @@ static void test_fts_record(void)
 
 	/* foreign-writer update via put → dirty → lazy rebuild */
 	values[0] = "Moonlight now";
-	hyle_source_put("fts.rec", "r1", names, values, 2);
+	hyle_registry_put("fts.rec", "r1", names, values, 2);
 	fts_query_src("fts.rec", "title", "starlight", &out);
 	CHECK(qmap_count(out.row_hd, NULL) == 0, "stale token gone (record)");
 	qmap_close(out.row_hd);
@@ -1661,7 +1661,7 @@ static void test_fts_record(void)
 	qmap_close(out.row_hd);
 
 	/* delete → gone from the record source */
-	hyle_source_del("fts.rec", "r1");
+	hyle_registry_del("fts.rec", "r1");
 	fts_query_src("fts.rec", "title", "moonlight", &out);
 	CHECK(qmap_count(out.row_hd, NULL) == 0, "deleted record row gone");
 	qmap_close(out.row_hd);
@@ -1704,7 +1704,7 @@ static void ms_put_type(const char *id, const char *name)
 	const char *names[1] = { "name" };
 	const char *values[1] = { name };
 
-	hyle_source_put("ms.types", id, names, values, 1);
+	hyle_registry_put("ms.types", id, names, values, 1);
 }
 
 static void ms_put_song(const char *id, const char *type, const char *tags)
@@ -1712,7 +1712,7 @@ static void ms_put_song(const char *id, const char *type, const char *tags)
 	const char *names[2] = { "type", "tags" };
 	const char *values[2] = { type, tags };
 
-	hyle_source_put("ms.items", id, names, values, 2);
+	hyle_registry_put("ms.items", id, names, values, 2);
 }
 
 static void ms_query(const char *qs, hyle_row_set_t *out)
@@ -1724,7 +1724,7 @@ static void ms_query(const char *qs, hyle_row_set_t *out)
 	buf[sizeof(buf) - 1] = '\0';
 	memset(&q, 0, sizeof(q));
 	hyle_parse_query(buf, &q);
-	hyle_source_query("ms.items", &q, out, NULL);
+	hyle_registry_query("ms.items", &q, out, NULL);
 	hyle_query_clear(&q);
 }
 
@@ -1734,7 +1734,7 @@ static void test_prefilter_multi_ref_union_intersect(void)
 	uint32_t rec;
 
 	printf("\n=== prefilter multi-ref: union/intersect ===\n");
-	hyle_source_register("ms.types", ms_type_fields, 2, 0, 0, NULL);
+	hyle_registry_register("ms.types", ms_type_fields, 2, 0, 0, NULL);
 	ms_put_type("comunhao", "Comunhão");
 	ms_put_type("natal", "Natal");
 	ms_put_type("festa", "Festa");
@@ -1744,7 +1744,7 @@ static void test_prefilter_multi_ref_union_intersect(void)
 	rec = qmap_record_register(
 	        "ms.rec", sizeof(ms_song_rec_t), ms_rec_fields, 3);
 	CHECK(rec != QM_MISS, "ms record layout registered");
-	hyle_source_register("ms.items", ms_song_fields, 3, rec, 0, NULL);
+	hyle_registry_register("ms.items", ms_song_fields, 3, rec, 0, NULL);
 	/* Plain-map target: qmap_pos finds no "comunhao" key (plain maps
 	 * store "row:field" composite keys), so prefilter_multi_ref falls
 	 * back to the raw slug — the site's shape. song1 tags = "comunhao"
@@ -1800,7 +1800,7 @@ static void ao_query(const char *qs, hyle_row_set_t *out)
 	buf[sizeof(buf) - 1] = '\0';
 	memset(&q, 0, sizeof(q));
 	hyle_parse_query(buf, &q);
-	hyle_source_query("ao.items", &q, out, NULL);
+	hyle_registry_query("ao.items", &q, out, NULL);
 	hyle_query_clear(&q);
 }
 
@@ -1813,7 +1813,7 @@ static void ao_books_query(const char *qs, hyle_row_set_t *out)
 	buf[sizeof(buf) - 1] = '\0';
 	memset(&q, 0, sizeof(q));
 	hyle_parse_query(buf, &q);
-	hyle_source_query("ao.books", &q, out, NULL);
+	hyle_registry_query("ao.books", &q, out, NULL);
 	hyle_query_clear(&q);
 }
 
@@ -1905,7 +1905,7 @@ static void test_prefilter_multi_ref_field_default_and(void)
 	rec = qmap_record_register(
 	        "ao.rec", sizeof(ms_song_rec_t), ms_rec_fields, 3);
 	CHECK(rec != QM_MISS, "ao record layout registered");
-	hyle_source_register("ao.items", ao_song_fields, 2, rec, 0, NULL);
+	hyle_registry_register("ao.items", ao_song_fields, 2, rec, 0, NULL);
 
 	/* Reuse ms.items songs: need to put matching data under ao.items.
 	 * ao.items uses same record layout, same ms.types target. */
@@ -1914,13 +1914,13 @@ static void test_prefilter_multi_ref_field_default_and(void)
 		const char *values[1];
 
 		values[0] = "comunhao";
-		hyle_source_put("ao.items", "song1", names, values, 1);
+		hyle_registry_put("ao.items", "song1", names, values, 1);
 		values[0] = "natal";
-		hyle_source_put("ao.items", "song2", names, values, 1);
+		hyle_registry_put("ao.items", "song2", names, values, 1);
 		values[0] = "comunhao\nnatal";
-		hyle_source_put("ao.items", "song3", names, values, 1);
+		hyle_registry_put("ao.items", "song3", names, values, 1);
 		values[0] = "festa";
-		hyle_source_put("ao.items", "song4", names, values, 1);
+		hyle_registry_put("ao.items", "song4", names, values, 1);
 	}
 
 	/* AND by field default — no _op */
@@ -1944,18 +1944,18 @@ static void test_prefilter_ref_multi_value(void)
 	rec = qmap_record_register(
 	        "ao.book_rec", sizeof(ao_book_rec_t), ao_book_rec_fields, 2);
 	CHECK(rec != QM_MISS, "ao.book_rec registered");
-	hyle_source_register("ao.books", ao_book_fields, 2, rec, 0, NULL);
+	hyle_registry_register("ao.books", ao_book_fields, 2, rec, 0, NULL);
 
 	{
 		const char *names[1] = { "choir" };
 		const char *values[1];
 
 		values[0] = "comunhao";
-		hyle_source_put("ao.books", "b1", names, values, 1);
+		hyle_registry_put("ao.books", "b1", names, values, 1);
 		values[0] = "natal";
-		hyle_source_put("ao.books", "b2", names, values, 1);
+		hyle_registry_put("ao.books", "b2", names, values, 1);
 		values[0] = "comunhao";
-		hyle_source_put("ao.books", "b3", names, values, 1);
+		hyle_registry_put("ao.books", "b3", names, values, 1);
 	}
 
 	/* OR union: b1,b2,b3 */
@@ -1996,7 +1996,7 @@ static void omni_put_type(const char *id, const char *name)
 	const char *names[1] = { "name" };
 	const char *values[1] = { name };
 
-	hyle_source_put("omni.types", id, names, values, 1);
+	hyle_registry_put("omni.types", id, names, values, 1);
 }
 
 static void omni_put_item(
@@ -2009,7 +2009,7 @@ static void omni_put_item(
 	values[0] = title;
 	values[1] = author;
 	values[2] = type;
-	hyle_source_put("omni.items", id, names, values, 3);
+	hyle_registry_put("omni.items", id, names, values, 3);
 }
 
 static void omni_query(const char *qs, hyle_row_set_t *out)
@@ -2021,7 +2021,7 @@ static void omni_query(const char *qs, hyle_row_set_t *out)
 	buf[sizeof(buf) - 1] = '\0';
 	memset(&q, 0, sizeof(q));
 	hyle_parse_query(buf, &q);
-	hyle_source_query("omni.items", &q, out, NULL);
+	hyle_registry_query("omni.items", &q, out, NULL);
 	hyle_query_clear(&q);
 }
 
@@ -2030,11 +2030,11 @@ static void test_prefilter_q_labels(void)
 	hyle_row_set_t out;
 
 	printf("\n=== prefilter q: stored values + ref labels ===\n");
-	hyle_source_register("omni.types", omni_type_fields, 2, 0, 0, NULL);
+	hyle_registry_register("omni.types", omni_type_fields, 2, 0, 0, NULL);
 	omni_put_type("saida", "Saída");
 	omni_put_type("natal", "Natal");
 
-	hyle_source_register("omni.items", omni_item_fields, 4, 0, 0, NULL);
+	hyle_registry_register("omni.items", omni_item_fields, 4, 0, 0, NULL);
 	omni_put_item("a", "Coração Adorador", "X", "natal");
 	omni_put_item("b", "Hello", "Joaquim", "");
 	omni_put_item("c", "ZZZ", "Y", "saida");

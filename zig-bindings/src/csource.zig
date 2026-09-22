@@ -27,7 +27,7 @@ pub const HyleQuery = extern struct {
     include_count: u32,
 };
 
-pub const HyleSourceRow = extern struct {
+pub const HyleRow = extern struct {
     id: ?[*:0]u8,
     field_names: ?*const ?[*:0]u8,
     field_values: ?*const ?[*:0]u8,
@@ -63,7 +63,7 @@ pub const FieldDef = struct {
     kind: FieldType,
 };
 
-extern fn hyle_source_register(
+extern fn hyle_registry_register(
     source_id: [*:0]u8,
     fields: *const HyleField,
     field_count: usize,
@@ -72,7 +72,7 @@ extern fn hyle_source_register(
     user: ?*anyopaque,
 ) callconv(.C) u32;
 
-extern fn hyle_source_put(
+extern fn hyle_registry_put(
     source_id: [*:0]u8,
     row_id: [*:0]u8,
     names: *const ?[*:0]u8,
@@ -80,12 +80,12 @@ extern fn hyle_source_put(
     count: usize,
 ) callconv(.C) c_int;
 
-extern fn hyle_source_del(
+extern fn hyle_registry_del(
     source_id: [*:0]u8,
     row_id: [*:0]u8,
 ) callconv(.C) void;
 
-extern fn hyle_source_query(
+extern fn hyle_registry_query(
     source_id: [*:0]u8,
     query: *const HyleQuery,
     out: *HyleRowSet,
@@ -98,12 +98,12 @@ extern fn hyle_row_set_free(
 
 extern fn hyle_row_set_to_rows(
     rs: *const HyleRowSet,
-    rows_out: *?*HyleSourceRow,
+    rows_out: *?*HyleRow,
     count_out: *usize,
 ) callconv(.C) c_int;
 
-extern fn hyle_source_rows_free(
-    rows: *HyleSourceRow,
+extern fn hyle_rows_free(
+    rows: *HyleRow,
     count: usize,
 ) callconv(.C) void;
 
@@ -136,7 +136,7 @@ pub fn registerSource(source_id: []const u8, fields: []const FieldDef, allocator
         }) catch return;
     }
 
-    _ = hyle_source_register(
+    _ = hyle_registry_register(
         id_cs.ptr,
         hyle_fields.items.ptr,
         hyle_fields.items.len,
@@ -171,7 +171,7 @@ pub fn sourcePut(source_id: []const u8, row: *const Row, allocator: std.mem.Allo
         value_ptrs.append(val_cs.ptr) catch return;
     }
 
-    _ = hyle_source_put(
+    _ = hyle_registry_put(
         id_cs.ptr,
         row_cs.ptr,
         name_ptrs.items.ptr,
@@ -183,7 +183,7 @@ pub fn sourcePut(source_id: []const u8, row: *const Row, allocator: std.mem.Allo
 pub fn sourceDel(source_id: []const u8, row_id: []const u8, allocator: std.mem.Allocator) void {
     const id_cs = std.cstr.addNullByte(allocator, source_id) catch return;
     const row_cs = std.cstr.addNullByte(allocator, row_id) catch return;
-    hyle_source_del(id_cs.ptr, row_cs.ptr);
+    hyle_registry_del(id_cs.ptr, row_cs.ptr);
 }
 
 fn valueToCString(v: Value, allocator: std.mem.Allocator) ![]const u8 {

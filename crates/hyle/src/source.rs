@@ -367,7 +367,7 @@ pub mod csource {
 	}
 
 	#[repr(C)]
-	struct HyleSourceRow {
+	struct HyleFfiRow {
 		id:           *const c_char,
 		field_names:  *const *const c_char,
 		field_values: *const *const c_char,
@@ -391,7 +391,7 @@ pub mod csource {
 	}
 
 	unsafe extern "C" {
-		fn hyle_source_register(
+		fn hyle_registry_register(
 			source_id:   *const c_char,
 			fields:      *const HyleField,
 			field_count: usize,
@@ -399,15 +399,15 @@ pub mod csource {
 			flags:       u32,
 			user:        *mut c_void,
 		) -> u32;
-		fn hyle_source_put(
+		fn hyle_registry_put(
 			source_id: *const c_char,
 			row_id:    *const c_char,
 			names:     *const *const c_char,
 			values:    *const *const c_char,
 			count:     usize,
 		) -> c_int;
-		fn hyle_source_del(source_id: *const c_char, row_id: *const c_char);
-		fn hyle_source_query(
+		fn hyle_registry_del(source_id: *const c_char, row_id: *const c_char);
+		fn hyle_registry_query(
 			source_id: *const c_char,
 			query:     *const HyleQuery,
 			out:       *mut HyleRowSet,
@@ -416,10 +416,10 @@ pub mod csource {
 		fn hyle_row_set_free(rs: *mut HyleRowSet);
 		fn hyle_row_set_to_rows(
 			rs:        *const HyleRowSet,
-			rows_out:  *mut *mut HyleSourceRow,
+			rows_out:  *mut *mut HyleFfiRow,
 			count_out: *mut usize,
 		) -> c_int;
-		fn hyle_source_rows_free(rows: *mut HyleSourceRow, count: usize);
+		fn hyle_rows_free(rows: *mut HyleFfiRow, count: usize);
 	}
 
 	// ---- field type ---------------------------------------------------------
@@ -475,7 +475,7 @@ pub mod csource {
 			})
 			.collect();
 		unsafe {
-			hyle_source_register(
+			hyle_registry_register(
 				id_cs.as_ptr(),
 				hyle_fields.as_ptr(),
 				hyle_fields.len(),
@@ -537,7 +537,7 @@ pub mod csource {
 		let value_ptrs: Vec<*const c_char> = values.iter().map(|s| s.as_ptr()).collect();
 
 		unsafe {
-			hyle_source_put(
+			hyle_registry_put(
 				id_cs.as_ptr(),
 				row_cs.as_ptr(),
 				name_ptrs.as_ptr(),
@@ -551,7 +551,7 @@ pub mod csource {
 	pub fn source_del(source_id: &str, row_id: &str) {
 		let id_cs  = match CString::new(source_id) { Ok(c) => c, Err(_) => return };
 		let row_cs = match CString::new(row_id)     { Ok(c) => c, Err(_) => return };
-		unsafe { hyle_source_del(id_cs.as_ptr(), row_cs.as_ptr()) };
+		unsafe { hyle_registry_del(id_cs.as_ptr(), row_cs.as_ptr()) };
 	}
 
 	// ---- query / find -------------------------------------------------------
@@ -617,7 +617,7 @@ pub mod csource {
 	}
 
 	fn row_set_to_rust(rs: &HyleRowSet) -> Vec<Row> {
-		let mut rows_ptr: *mut HyleSourceRow = std::ptr::null_mut();
+		let mut rows_ptr: *mut HyleFfiRow = std::ptr::null_mut();
 		let mut count: usize = 0;
 		let rc = unsafe { hyle_row_set_to_rows(rs, &mut rows_ptr, &mut count) };
 		if rc != 0 || rows_ptr.is_null() {
@@ -644,7 +644,7 @@ pub mod csource {
 			}
 			out.push(row);
 		}
-		unsafe { hyle_source_rows_free(rows_ptr, count) };
+		unsafe { hyle_rows_free(rows_ptr, count) };
 		out
 	}
 
@@ -662,9 +662,9 @@ pub mod csource {
 		let mut total: usize = 0;
 
 		unsafe {
-			let rc = hyle_source_query(id_cs.as_ptr(), &cq, &mut out, &mut total);
+			let rc = hyle_registry_query(id_cs.as_ptr(), &cq, &mut out, &mut total);
 			if rc != 0 {
-				return Err(format!("hyle_source_query returned {rc}"));
+				return Err(format!("hyle_registry_query returned {rc}"));
 			}
 		}
 

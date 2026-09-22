@@ -12,10 +12,10 @@ typedef struct {
 	const hyle_field_t *fields;
 	size_t field_count;
 	uint32_t fields_hd;
-} hyle_source_schema_t;
+} hyle_blueprint_schema_t;
 
 typedef struct {
-	hyle_source_schema_t *sources;
+	hyle_blueprint_schema_t *sources;
 	size_t source_count;
 } hyle_blueprint_t;
 

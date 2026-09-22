@@ -1,5 +1,5 @@
-#ifndef HYLE_SOURCE_H
-#define HYLE_SOURCE_H
+#ifndef HYLE_REGISTRY_H
+#define HYLE_REGISTRY_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -7,8 +7,8 @@
 #include "field.h"
 #include "query.h"
 
-/* Ordered source flags for hyle_source_register_ordered */
-#define HYLE_AUTO_RECORD  0x01  /* Auto-create qmap record from field metadata */
+/* Ordered source flags for hyle_ordered_register */
+#define HYLE_REGISTRY_AUTO_RECORD  0x01  /* Auto-create qmap record from field metadata */
 
 /*
  * Register a source.
@@ -20,11 +20,11 @@
  * flags:     Extra qmap flags for the row_hd (e.g. QM_SORTED, QM_AINDEX).
  *
  * user:      Opaque pointer stored in the registry.  Retrieve later with
- *            hyle_source_get_user().  libhyle does not free it.
+ *            hyle_registry_get_user().  libhyle does not free it.
  *
  * Returns fields_hd on success, 0 on error.
  */
-unsigned hyle_source_register(
+unsigned hyle_registry_register(
 	const char *source_id,
 	const hyle_field_t *fields,
 	size_t field_count,
@@ -38,7 +38,7 @@ unsigned hyle_source_register(
  * in fields_hd.  names/values are parallel arrays of count entries.
  * Returns 0 on success.
  */
-int hyle_source_put(const char *source_id,
+int hyle_registry_put(const char *source_id,
 	const char *row_id,
 	const char **names,
 	const char **values,
@@ -48,7 +48,7 @@ int hyle_source_put(const char *source_id,
  * Delete a row from a registered source.
  * Removes row_id from row_hd and all row_id:* entries from fields_hd.
  */
-void hyle_source_del(const char *source_id, const char *row_id);
+void hyle_registry_del(const char *source_id, const char *row_id);
 
 /*
  * Filter → sort → paginate over the source's live qmaps.
@@ -58,7 +58,7 @@ void hyle_source_del(const char *source_id, const char *row_id);
  * Caller must call hyle_row_set_free() on *out when done.
  * Returns 0 on success.
  */
-int hyle_source_query(const char *source_id,
+int hyle_registry_query(const char *source_id,
 	const hyle_query_t *query,
 	hyle_row_set_t *out,
 	size_t *total_out);
@@ -68,15 +68,15 @@ void hyle_row_set_free(hyle_row_set_t *rs);
 
 /* ---- Registry accessors ------------------------------------------------- */
 
-unsigned     hyle_source_get_row_hd(const char *source_id);
-unsigned     hyle_source_get_fields_hd(const char *source_id);
-void        *hyle_source_get_user(const char *source_id);
-void         hyle_source_set_user(const char *source_id, void *user);
-size_t       hyle_source_count(void);
-const char  *hyle_source_id_at(size_t i);
-size_t       hyle_source_get_field_count(const char *source_id);
-const char  *hyle_source_get_field_name(const char *source_id, size_t idx);
-hyle_field_type_t hyle_source_get_field_type(const char *source_id, size_t idx);
+unsigned     hyle_registry_get_row_hd(const char *source_id);
+unsigned     hyle_registry_get_fields_hd(const char *source_id);
+void        *hyle_registry_get_user(const char *source_id);
+void         hyle_registry_set_user(const char *source_id, void *user);
+size_t       hyle_registry_count(void);
+const char  *hyle_registry_id_at(size_t i);
+size_t       hyle_registry_get_field_count(const char *source_id);
+const char  *hyle_registry_get_field_name(const char *source_id, size_t idx);
+hyle_field_type_t hyle_registry_get_field_type(const char *source_id, size_t idx);
 
 /* ---- FFI helpers (Rust bridge) ----------------------------------------- */
 
@@ -85,25 +85,25 @@ typedef struct {
 	const char **field_names;
 	const char **field_values;
 	size_t       field_count;
-} hyle_source_row_t;
+} hyle_ffi_row_t;
 
 /*
  * Convert a row_set to a flat row array.
- * Caller must free with hyle_source_rows_free(*rows_out, *count_out).
+ * Caller must free with hyle_rows_free(*rows_out, *count_out).
  * Returns 0 on success.
  */
 int hyle_row_set_to_rows(const hyle_row_set_t *rs,
-	hyle_source_row_t **rows_out,
+	hyle_ffi_row_t **rows_out,
 	size_t *count_out);
 
-void hyle_source_rows_free(hyle_source_row_t *rows, size_t count);
+void hyle_rows_free(hyle_ffi_row_t *rows, size_t count);
 
 /* ---- Ordered source (positional arrays with pluggable persistence) ------ */
 
 /*
  * Persistence callbacks for ordered sources.
  * load_fn:  called on first access to a partition; should populate items
- *           via hyle_source_put() with keys "{partition_val}__{NNNN}".
+ *           via hyle_registry_put() with keys "{partition_val}__{NNNN}".
  * save_fn:  called after every mutation; should persist the partition's items.
  * user:     opaque pointer (not freed by libhyle).
  */
@@ -122,7 +122,7 @@ typedef int (*hyle_persist_save_fn)(const char *source_id,
  *
  * Returns fields_hd on success, 0 on error.
  */
-unsigned hyle_source_register_ordered(
+unsigned hyle_ordered_register(
 	const char *source_id,
 	const hyle_field_t *fields, size_t field_count,
 	const char *partition_field,
@@ -132,7 +132,7 @@ unsigned hyle_source_register_ordered(
 	void *persist_user);
 
 /* Number of items in partition partition_val. */
-int hyle_source_ordered_count(const char *source_id,
+int hyle_ordered_count(const char *source_id,
 	const char *partition_val);
 
 /*
@@ -140,7 +140,7 @@ int hyle_source_ordered_count(const char *source_id,
  * Returns a pointer to a static buffer (valid until next ordered key_at call).
  * Returns NULL if the item doesn't exist.
  */
-const char *hyle_source_ordered_key_at(const char *source_id,
+const char *hyle_ordered_key_at(const char *source_id,
 	const char *partition_val, int pos);
 
 /*
@@ -148,7 +148,7 @@ const char *hyle_source_ordered_key_at(const char *source_id,
  * names/values are parallel arrays of count entries.
  * Returns 0 on success.
  */
-int hyle_source_ordered_append(const char *source_id,
+int hyle_ordered_append(const char *source_id,
 	const char *partition_val,
 	const char **names, const char **values, size_t count);
 
@@ -156,25 +156,25 @@ int hyle_source_ordered_append(const char *source_id,
  * Insert an item at position pos.  Shifts items [pos..end] forward.
  * Triggers save.  Returns 0 on success.
  */
-int hyle_source_ordered_insert_at(const char *source_id,
+int hyle_ordered_insert_at(const char *source_id,
 	const char *partition_val, int pos,
 	const char **names, const char **values, size_t count);
 
 /* Remove the item at position pos.  Shifts items [pos+1..end] backward.
  * Triggers save. */
-void hyle_source_ordered_remove_at(const char *source_id,
+void hyle_ordered_remove_at(const char *source_id,
 	const char *partition_val, int pos);
 
 /* Remove all items in the partition.  Triggers save. */
-void hyle_source_ordered_clear(const char *source_id,
+void hyle_ordered_clear(const char *source_id,
 	const char *partition_val);
 
 /*
  * Explicitly trigger the save callback for a partition.
- * Useful after modifying fields via hyle_source_put() on an ordered
+ * Useful after modifying fields via hyle_registry_put() on an ordered
  * source's keys.
  */
-void hyle_source_ordered_save(const char *source_id,
+void hyle_ordered_save(const char *source_id,
 	const char *partition_val);
 
 /* ---- Derive field registry ---------------------------------------------- */
@@ -182,7 +182,7 @@ void hyle_source_ordered_save(const char *source_id,
  * Function signature for derived field providers.
  * Called during index rebuild to get the searchable value for a derived field.
  *
- * def:     Source definition (opaque, retrieved via hyle_source_get_user())
+ * def:     Source definition (opaque, retrieved via hyle_registry_get_user())
  * row_id:  Row identifier
  * field_name: Name of the derived field being queried
  *
@@ -203,12 +203,12 @@ typedef const char *(*hyle_derive_fn_t)(
  * fn:          Provider function
  * user:        Opaque user data passed to fn
  */
-int hyle_register_derive(const char *derive_key, hyle_derive_fn_t fn, void *user);
+int hyle_derive_register(const char *derive_key, hyle_derive_fn_t fn, void *user);
 
 /*
  * Lookup and call a derive provider.
  * Called internally during index rebuild.
  */
-const char *hyle_call_derive(const void *def, const char *derive_key, const char *row_id, const char *field_name, void *user);
+const char *hyle_derive_call(const void *def, const char *derive_key, const char *row_id, const char *field_name, void *user);
 
 #endif

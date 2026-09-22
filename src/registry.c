@@ -4,13 +4,13 @@
 #include <limits.h>
 #include <ttypt/qmap.h>
 #include <stoma/stoma.h>
-#include "hyle/source.h"
+#include "hyle/registry.h"
 #include "hyle/query.h"
 #include "hyle/ctx.h"
 
 /* ---- registry ---- */
 
-#define HYLE_SOURCE_MAX 64
+#define HYLE_REGISTRY_MAX 64
 
 typedef struct {
 	char source_id[128];
@@ -33,7 +33,7 @@ typedef struct {
 	int stoma_dirty;
 } registry_entry_t;
 
-static registry_entry_t registry[HYLE_SOURCE_MAX];
+static registry_entry_t registry[HYLE_REGISTRY_MAX];
 static size_t registry_count = 0;
 
 typedef struct {
@@ -62,8 +62,8 @@ static registry_entry_t *alloc_entry(const char *source_id)
 
 	if (!source_id || !source_id[0])
 		return NULL;
-	if (registry_count >= HYLE_SOURCE_MAX) {
-		fprintf(stderr, "hyle_source_register: registry full\n");
+	if (registry_count >= HYLE_REGISTRY_MAX) {
+		fprintf(stderr, "hyle_registry_register: registry full\n");
 		return NULL;
 	}
 	e = find_entry(source_id);
@@ -75,7 +75,7 @@ static registry_entry_t *alloc_entry(const char *source_id)
 	return e;
 }
 
-int hyle_register_derive(const char *derive_key, hyle_derive_fn_t fn, void *user)
+int hyle_derive_register(const char *derive_key, hyle_derive_fn_t fn, void *user)
 {
 	if (derive_registry_count >= 32)
 		return -1;
@@ -87,7 +87,7 @@ int hyle_register_derive(const char *derive_key, hyle_derive_fn_t fn, void *user
 }
 
 
-const char *hyle_call_derive(const void *def, const char *derive_key, const char *row_id, const char *field_name, void *user)
+const char *hyle_derive_call(const void *def, const char *derive_key, const char *row_id, const char *field_name, void *user)
 {
 	(void)user;
 	if (!derive_key)
@@ -102,9 +102,9 @@ const char *hyle_call_derive(const void *def, const char *derive_key, const char
 
 
 
-/* ---- hyle_source_register ---- */
+/* ---- hyle_registry_register ---- */
 
-unsigned hyle_source_register(
+unsigned hyle_registry_register(
         const char *source_id, const hyle_field_t *fields, size_t field_count,
         uint32_t record_id, unsigned flags, void *user)
 {
@@ -170,9 +170,9 @@ unsigned hyle_source_register(
 	return flds_hd;
 }
 
-/* ---- hyle_source_put ---- */
+/* ---- hyle_registry_put ---- */
 
-int hyle_source_put(
+int hyle_registry_put(
         const char *source_id, const char *row_id, const char **names,
         const char **values, size_t count)
 {
@@ -184,7 +184,7 @@ int hyle_source_put(
 		return -1;
 	e = find_entry(source_id);
 	if (!e) {
-		fprintf(stderr, "hyle_source_put: source '%s' not found\n",
+		fprintf(stderr, "hyle_registry_put: source '%s' not found\n",
 		        source_id);
 		return -1;
 	}
@@ -209,9 +209,9 @@ int hyle_source_put(
 	return 0;
 }
 
-/* ---- hyle_source_del ---- */
+/* ---- hyle_registry_del ---- */
 
-void hyle_source_del(const char *source_id, const char *row_id)
+void hyle_registry_del(const char *source_id, const char *row_id)
 {
 	registry_entry_t *e;
 
@@ -661,7 +661,7 @@ static unsigned prefilter_fts(
 					continue;
 				if (e->fields[sj].type == HYLE_FIELD_DERIVED) {
 					const void *def = e->user;
-					fv = hyle_call_derive(def, e->fields[sj].derive_key, rid, fname, NULL);
+					fv = hyle_derive_call(def, e->fields[sj].derive_key, rid, fname, NULL);
 				} else {
 					snprintf(
 					        key, sizeof(key), "%s:%s", rid,
@@ -860,7 +860,7 @@ static int row_matches_q(
 			continue;
 		if (f->type == HYLE_FIELD_DERIVED) {
 			const void *def = e->user;
-			stored = hyle_call_derive(def, f->derive_key, row_id, f->name, NULL);
+			stored = hyle_derive_call(def, f->derive_key, row_id, f->name, NULL);
 		} else {
 			snprintf(key, sizeof(key), "%s:%s", row_id, f->name);
 			stored = (const char *)qmap_get(e->fields_hd, key);
@@ -908,9 +908,9 @@ static unsigned prefilter_q(
 	return q_hd;
 }
 
-/* ---- hyle_source_query ---- */
+/* ---- hyle_registry_query ---- */
 
-int hyle_source_query(
+int hyle_registry_query(
         const char *source_id, const hyle_query_t *query, hyle_row_set_t *out,
         size_t *total_out)
 {
@@ -928,7 +928,7 @@ int hyle_source_query(
 		return -1;
 	e = find_entry(source_id);
 	if (!e) {
-		fprintf(stderr, "hyle_source_query: source '%s' not found\n",
+		fprintf(stderr, "hyle_registry_query: source '%s' not found\n",
 		        source_id);
 		return -1;
 	}
@@ -990,48 +990,48 @@ int hyle_source_query(
 
 /* ---- accessors ---- */
 
-unsigned hyle_source_get_row_hd(const char *source_id)
+unsigned hyle_registry_get_row_hd(const char *source_id)
 {
 	const registry_entry_t *e = find_entry(source_id);
 	return e ? e->row_hd : 0;
 }
 
-unsigned hyle_source_get_fields_hd(const char *source_id)
+unsigned hyle_registry_get_fields_hd(const char *source_id)
 {
 	const registry_entry_t *e = find_entry(source_id);
 	return e ? e->fields_hd : 0;
 }
 
-void *hyle_source_get_user(const char *source_id)
+void *hyle_registry_get_user(const char *source_id)
 {
 	const registry_entry_t *e = find_entry(source_id);
 	return e ? e->user : NULL;
 }
 
-void hyle_source_set_user(const char *source_id, void *user)
+void hyle_registry_set_user(const char *source_id, void *user)
 {
 	registry_entry_t *e = find_entry(source_id);
 	if (e)
 		e->user = user;
 }
 
-size_t hyle_source_count(void)
+size_t hyle_registry_count(void)
 {
 	return registry_count;
 }
 
-const char *hyle_source_id_at(size_t i)
+const char *hyle_registry_id_at(size_t i)
 {
 	return i < registry_count ? registry[i].source_id : NULL;
 }
 
-size_t hyle_source_get_field_count(const char *source_id)
+size_t hyle_registry_get_field_count(const char *source_id)
 {
 	registry_entry_t *e = find_entry(source_id);
 	return e ? e->field_count : 0;
 }
 
-const char *hyle_source_get_field_name(const char *source_id, size_t idx)
+const char *hyle_registry_get_field_name(const char *source_id, size_t idx)
 {
 	registry_entry_t *e = find_entry(source_id);
 	if (!e || idx >= e->field_count)
@@ -1039,7 +1039,7 @@ const char *hyle_source_get_field_name(const char *source_id, size_t idx)
 	return e->fields[idx].name;
 }
 
-hyle_field_type_t hyle_source_get_field_type(const char *source_id, size_t idx)
+hyle_field_type_t hyle_registry_get_field_type(const char *source_id, size_t idx)
 {
 	registry_entry_t *e = find_entry(source_id);
 	if (!e || idx >= e->field_count)
@@ -1047,9 +1047,9 @@ hyle_field_type_t hyle_source_get_field_type(const char *source_id, size_t idx)
 	return e->fields[idx].type;
 }
 
-/* ---- hyle_source_rows_free ---- */
+/* ---- hyle_rows_free ---- */
 
-void hyle_source_rows_free(hyle_source_row_t *rows, size_t count)
+void hyle_rows_free(hyle_ffi_row_t *rows, size_t count)
 {
 	size_t i;
 	size_t j;
@@ -1075,11 +1075,11 @@ void hyle_source_rows_free(hyle_source_row_t *rows, size_t count)
 /* ---- hyle_row_set_to_rows ---- */
 
 int hyle_row_set_to_rows(
-        const hyle_row_set_t *rs, hyle_source_row_t **rows_out,
+        const hyle_row_set_t *rs, hyle_ffi_row_t **rows_out,
         size_t *count_out)
 {
 	uint32_t total;
-	hyle_source_row_t *rows;
+	hyle_ffi_row_t *rows;
 	size_t ri;
 	uint32_t cur;
 	const void *k;
@@ -1100,7 +1100,7 @@ int hyle_row_set_to_rows(
 	if (total == 0)
 		return 0;
 
-	rows = (hyle_source_row_t *)calloc(total, sizeof(hyle_source_row_t));
+	rows = (hyle_ffi_row_t *)calloc(total, sizeof(hyle_ffi_row_t));
 	if (!rows)
 		return -1;
 
@@ -1119,7 +1119,7 @@ int hyle_row_set_to_rows(
 			free(names);
 			free(values);
 			qmap_fin(cur);
-			hyle_source_rows_free(rows, ri);
+			hyle_rows_free(rows, ri);
 			return -1;
 		}
 
@@ -1142,7 +1142,7 @@ int hyle_row_set_to_rows(
 					qmap_fin(cur);
 					free((void *)names);
 					free((void *)values);
-					hyle_source_rows_free(rows, ri);
+					hyle_rows_free(rows, ri);
 					return -1;
 				}
 				names = tmp;
@@ -1153,7 +1153,7 @@ int hyle_row_set_to_rows(
 					qmap_fin(cur);
 					free((void *)names);
 					free((void *)values);
-					hyle_source_rows_free(rows, ri);
+					hyle_rows_free(rows, ri);
 					return -1;
 				}
 				values = tmp;
@@ -1292,7 +1292,7 @@ static int ordered_save(const char *source_id, const char *pval)
 #define HYLE_AUTO_MAX_FIELDS 64
 
 static uint32_t
-hyle_source_auto_record(const hyle_field_t *fields, size_t field_count)
+hyle_registry_auto_record(const hyle_field_t *fields, size_t field_count)
 {
 	qmap_record_field_t qfields[HYLE_AUTO_MAX_FIELDS];
 	size_t target_idx[HYLE_AUTO_MAX_FIELDS];
@@ -1358,7 +1358,7 @@ hyle_source_auto_record(const hyle_field_t *fields, size_t field_count)
 		{
 			size_t fi = target_idx[i];
 			if (fields[fi].target_source) {
-				unsigned thd = hyle_source_get_fields_hd(
+				unsigned thd = hyle_registry_get_fields_hd(
 				        fields[fi].target_source);
 				if (thd)
 					qmap_record_field_set_target_hd(
@@ -1372,7 +1372,7 @@ hyle_source_auto_record(const hyle_field_t *fields, size_t field_count)
 
 /* ---- public API ------------------------------------------------------- */
 
-unsigned hyle_source_register_ordered(
+unsigned hyle_ordered_register(
         const char *source_id, const hyle_field_t *fields, size_t field_count,
         const char *partition_field, uint32_t record_id, unsigned flags,
         hyle_persist_load_fn load_fn, hyle_persist_save_fn save_fn,
@@ -1382,14 +1382,14 @@ unsigned hyle_source_register_ordered(
 	registry_entry_t *e;
 	unsigned hyle_flags;
 
-	hyle_flags = flags & HYLE_AUTO_RECORD;
-	flags = flags & ~HYLE_AUTO_RECORD;
+	hyle_flags = flags & HYLE_REGISTRY_AUTO_RECORD;
+	flags = flags & ~HYLE_REGISTRY_AUTO_RECORD;
 
-	if ((hyle_flags & HYLE_AUTO_RECORD) && record_id == 0 && fields &&
+	if ((hyle_flags & HYLE_REGISTRY_AUTO_RECORD) && record_id == 0 && fields &&
 	    field_count > 0)
-		record_id = hyle_source_auto_record(fields, field_count);
+		record_id = hyle_registry_auto_record(fields, field_count);
 
-	fhd = hyle_source_register(
+	fhd = hyle_registry_register(
 	        source_id, fields, field_count, record_id, flags, NULL);
 	if (!fhd)
 		return 0;
@@ -1412,7 +1412,7 @@ unsigned hyle_source_register_ordered(
 	return fhd;
 }
 
-int hyle_source_ordered_count(const char *source_id, const char *pval)
+int hyle_ordered_count(const char *source_id, const char *pval)
 {
 	registry_entry_t *e;
 	const char *c;
@@ -1427,7 +1427,7 @@ int hyle_source_ordered_count(const char *source_id, const char *pval)
 }
 
 const char *
-hyle_source_ordered_key_at(const char *source_id, const char *pval, int pos)
+hyle_ordered_key_at(const char *source_id, const char *pval, int pos)
 {
 	static char key[128];
 
@@ -1437,7 +1437,7 @@ hyle_source_ordered_key_at(const char *source_id, const char *pval, int pos)
 	return key;
 }
 
-int hyle_source_ordered_append(
+int hyle_ordered_append(
         const char *source_id, const char *pval, const char **names,
         const char **values, size_t count)
 {
@@ -1447,9 +1447,9 @@ int hyle_source_ordered_append(
 
 	if (ordered_ensure_loaded(source_id, pval) != 0)
 		return -1;
-	n = hyle_source_ordered_count(source_id, pval);
+	n = hyle_ordered_count(source_id, pval);
 	ordered_build_key(key, sizeof(key), pval, n);
-	hyle_source_put(source_id, key, names, values, count);
+	hyle_registry_put(source_id, key, names, values, count);
 	e = find_entry(source_id);
 	if (!e)
 		return -1;
@@ -1459,7 +1459,7 @@ int hyle_source_ordered_append(
 	return 0;
 }
 
-int hyle_source_ordered_insert_at(
+int hyle_ordered_insert_at(
         const char *source_id, const char *pval, int pos, const char **names,
         const char **values, size_t count)
 {
@@ -1472,16 +1472,16 @@ int hyle_source_ordered_insert_at(
 	e = find_entry(source_id);
 	if (!e)
 		return -1;
-	n = hyle_source_ordered_count(source_id, pval);
+	n = hyle_ordered_count(source_id, pval);
 	if (pos < 0 || pos > n)
 		return -1;
 	/* Reindex forward: [pos..n-1] → [pos+1..n] */
 	for (n = n - 1; n >= pos; n--)
 		ordered_move_key(e, pval, n, n + 1);
 	/* n is now pos-1; restore */
-	n = hyle_source_ordered_count(source_id, pval);
+	n = hyle_ordered_count(source_id, pval);
 	ordered_build_key(key, sizeof(key), pval, pos);
-	hyle_source_put(source_id, key, names, values, count);
+	hyle_registry_put(source_id, key, names, values, count);
 	n++;
 	snprintf(c, sizeof(c), "%d", n);
 	qmap_put(e->order_hd, pval, c);
@@ -1489,7 +1489,7 @@ int hyle_source_ordered_insert_at(
 	return 0;
 }
 
-void hyle_source_ordered_remove_at(
+void hyle_ordered_remove_at(
         const char *source_id, const char *pval, int pos)
 {
 	registry_entry_t *e;
@@ -1502,11 +1502,11 @@ void hyle_source_ordered_remove_at(
 	e = find_entry(source_id);
 	if (!e)
 		return;
-	n = hyle_source_ordered_count(source_id, pval);
+	n = hyle_ordered_count(source_id, pval);
 	if (pos < 0 || pos >= n)
 		return;
 	ordered_build_key(key, sizeof(key), pval, pos);
-	hyle_source_del(source_id, key);
+	hyle_registry_del(source_id, key);
 	/* Reindex backward: [pos+1..n-1] → [pos..n-2] */
 	for (i = pos; i < n - 1; i++)
 		ordered_move_key(e, pval, i + 1, i);
@@ -1516,7 +1516,7 @@ void hyle_source_ordered_remove_at(
 	ordered_save(source_id, pval);
 }
 
-void hyle_source_ordered_clear(const char *source_id, const char *pval)
+void hyle_ordered_clear(const char *source_id, const char *pval)
 {
 	registry_entry_t *e;
 	int n;
@@ -1528,17 +1528,17 @@ void hyle_source_ordered_clear(const char *source_id, const char *pval)
 	e = find_entry(source_id);
 	if (!e)
 		return;
-	n = hyle_source_ordered_count(source_id, pval);
+	n = hyle_ordered_count(source_id, pval);
 	/* Delete all positional keys */
 	for (i = 0; i < n; i++) {
 		ordered_build_key(key, sizeof(key), pval, i);
-		hyle_source_del(source_id, key);
+		hyle_registry_del(source_id, key);
 	}
 	qmap_put(e->order_hd, pval, "0");
 	ordered_save(source_id, pval);
 }
 
-void hyle_source_ordered_save(const char *source_id, const char *pval)
+void hyle_ordered_save(const char *source_id, const char *pval)
 {
 	ordered_save(source_id, pval);
 }

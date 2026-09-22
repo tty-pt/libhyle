@@ -5,7 +5,7 @@ share := assets/hyle.css
 share-dir := hyle
 
 LDLIBS-libhyle := -lstoma -lqmap
-libhyle-obj-y := src/ctx.o src/value.o src/query.o src/view.o src/field.o src/blueprint.o src/purify.o src/source.o
+libhyle-obj-y := src/ctx.o src/value.o src/query.o src/view.o src/field.o src/blueprint.o src/purify.o src/registry.o src/url.o
 LDLIBS-hyle_test := -lhyle -lstoma -lqmap
 
 include ../mk/include.mk

@@ -6,5 +6,6 @@ CFLAGS-view-o := -fPIC
 CFLAGS-field-o := -fPIC
 CFLAGS-blueprint-o := -fPIC
 CFLAGS-purify-o := -fPIC
-CFLAGS-source-o := -fPIC
+CFLAGS-registry-o := -fPIC
+CFLAGS-url-o := -fPIC
 CFLAGS-hyle_test-o :=
