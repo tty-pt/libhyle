@@ -1,11 +1,29 @@
 FOLDER := hyle
 all := libhyle hyle_test
 
+share := assets/hyle.css
+share-dir := hyle
+
 LDLIBS-libhyle := -lstoma -lqmap
 libhyle-obj-y := src/ctx.o src/value.o src/query.o src/view.o src/field.o src/blueprint.o src/purify.o src/source.o
 LDLIBS-hyle_test := -lhyle -lstoma -lqmap
 
 include ../mk/include.mk
+
+# POSIX <regex.h> is not available on Windows; use PCRE2's POSIX wrapper.
+# Since PCRE2 10.43 the wrapper lives in libpcre2-posix (see pcre2posix.h macros).
+# Defined at the SYS level (not per-target): portable.mk folds LDLIBS-${SYS} into the
+# global LDLIBS, which the generic rules emit AFTER every per-target library. Required
+# for correct left-to-right static archive resolution: purify.o (in libhyle.a) references
+# pcre2_reg*, so -lpcre2 must come after -lhyle/-lstoma/-lqmap.
+LDLIBS-Windows := -lpcre2-posix -lpcre2-8
+
+# Install pkgconfig descriptor
+${DESTDIR}${PREFIX}/lib/pkgconfig/hyle.pc: hyle.pc
+	install -d ${DESTDIR}${PREFIX}/lib/pkgconfig
+	install -m 644 hyle.pc $@
+
+install: ${DESTDIR}${PREFIX}/lib/pkgconfig/hyle.pc
 
 # Also build a static archive for Rust FFI (avoids naming conflict with Rust cdylib)
 lib/libhyle.a: ${libhyle-obj-y} lib

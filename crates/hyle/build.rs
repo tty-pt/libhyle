@@ -15,14 +15,23 @@ fn main() {
 
         let hyle_lib  = repo_root.join("lib");
         let qmap_lib  = repo_root.join("../libqmap/lib");
+        let stoma_lib = repo_root.join("../libstoma/lib");
+        let qsys_lib  = repo_root.join("../libqsys/lib");
 
         println!("cargo:rustc-link-search=native={}", hyle_lib.display());
         println!("cargo:rustc-link-search=native={}", qmap_lib.display());
+        println!("cargo:rustc-link-search=native={}", stoma_lib.display());
+        println!("cargo:rustc-link-search=native={}", qsys_lib.display());
+
         // Link C libhyle statically to avoid naming collision with the Rust cdylib
         // (which is also called libhyle.so and is placed in target/debug/deps/).
         println!("cargo:rustc-link-lib=static=hyle");
-        // qmap has no naming conflict; link dynamically and bake rpath.
         println!("cargo:rustc-link-lib=dylib=qmap");
+        println!("cargo:rustc-link-lib=dylib=stoma");
+        println!("cargo:rustc-link-lib=dylib=qsys");
+
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", qmap_lib.display());
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", stoma_lib.display());
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", qsys_lib.display());
     }
 }
