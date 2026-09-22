@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <pcre2posix.h>
+#else
 #include <regex.h>
+#endif
 
 #include "hyle/purify.h"
 

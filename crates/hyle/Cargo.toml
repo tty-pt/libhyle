@@ -13,6 +13,7 @@ categories = ["data-structures"]
 crate-type = ["cdylib", "rlib"]
 
 [features]
+default = ["csource"]
 json = []
 wasm = ["dep:wasm-bindgen", "dep:console_error_panic_hook"]
 csource = []

@@ -1,0 +1,10 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libhyle
+Description: Canonical data schema, query, and persistence engine
+Version: 0.2.0
+Libs: -L${libdir} -lhyle -lqmap -lstoma
+Cflags: -I${includedir}
