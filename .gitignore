@@ -14,5 +14,3 @@ target/*
 /zig-bindings/.zig-cache/
 /zig-bindings/libhyle_zig.a
 /zig-bindings/zig-out/
-/c/libhyle-bud/lib
-/c/libhyle-source/lib/
