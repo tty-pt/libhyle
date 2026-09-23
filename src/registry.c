@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
-#include <ttypt/qmap.h>
+#include <ttypt/corm.h>
 #include <stoma/stoma.h>
 #include "hyle/registry.h"
 #include "hyle/query.h"
@@ -27,8 +27,8 @@ typedef struct {
 	hyle_persist_load_fn load_fn;
 	hyle_persist_save_fn save_fn;
 	void *persist_user;
-	unsigned order_hd;  /* qmap: pval → count (str) */
-	unsigned loaded_hd; /* qmap: pval → "" (loaded flag) */
+	unsigned order_hd;  /* corm: pval → count (str) */
+	unsigned loaded_hd; /* corm: pval → "" (loaded flag) */
 	stoma_db_t *stoma;  /* full-text index, NULL if no searchable field */
 	int stoma_dirty;
 } registry_entry_t;
@@ -117,32 +117,32 @@ unsigned hyle_registry_register(
 	if (!e)
 		return 0;
 
-	/* Derive qmap value type from record_id */
-	val_type = record_id ? qmap_record_type_id(record_id) : QM_STR;
+	/* Derive corm value type from record_id */
+	val_type = record_id ? corm_record_type_id(record_id) : CM_STR;
 
 	/* row_hd: always created and owned by libhyle */
 	if (e->row_owned && e->row_hd) {
-		qmap_close(e->row_hd);
+		corm_close(e->row_hd);
 		e->row_hd = 0;
 	}
-	e->row_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0x3FF, flags);
+	e->row_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0x3FF, flags);
 	if (!e->row_hd)
 		return 0;
 	e->row_owned = 1;
 
 	/* fields_hd: always created and owned by libhyle */
 	if (e->fields_hd)
-		qmap_close(e->fields_hd);
+		corm_close(e->fields_hd);
 
 	if (record_id) {
-		flds_hd = qmap_open(
-		        NULL, NULL, QM_STR, val_type, 0x3FF,
-		        QM_RECORD(record_id));
+		flds_hd = corm_open(
+		        NULL, NULL, CM_STR, val_type, 0x3FF,
+		        CM_RECORD(record_id));
 	} else {
-		flds_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0x3FF, 0);
+		flds_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0x3FF, 0);
 	}
 	if (!flds_hd) {
-		qmap_close(e->row_hd);
+		corm_close(e->row_hd);
 		e->row_hd = 0;
 		e->row_owned = 0;
 		return 0;
@@ -188,7 +188,7 @@ int hyle_registry_put(
 		        source_id);
 		return -1;
 	}
-	qmap_put(e->row_hd, row_id, "");
+	corm_put(e->row_hd, row_id, "");
 	for (i = 0; i < count; i++) {
 		if (!names[i])
 			continue;
@@ -196,12 +196,12 @@ int hyle_registry_put(
 			/* Record-aware: per-field write with reference
 			 * resolution (slug->position). Ordered sources store
 			 * raw composite values and must keep this path. */
-			qmap_field_put(
+			corm_field_put(
 			        e->fields_hd, row_id, names[i],
 			        values[i] ? values[i] : "");
 		} else {
 			snprintf(key, sizeof(key), "%s:%s", row_id, names[i]);
-			qmap_put(e->fields_hd, key, values[i] ? values[i] : "");
+			corm_put(e->fields_hd, key, values[i] ? values[i] : "");
 		}
 	}
 	if (e->stoma)
@@ -220,8 +220,8 @@ void hyle_registry_del(const char *source_id, const char *row_id)
 	e = find_entry(source_id);
 	if (!e)
 		return;
-	qmap_del(e->row_hd, row_id);
-	qmap_del(e->fields_hd, row_id);
+	corm_del(e->row_hd, row_id);
+	corm_del(e->fields_hd, row_id);
 	if (e->stoma)
 		e->stoma_dirty = 1;
 }
@@ -233,7 +233,7 @@ void hyle_row_set_free(hyle_row_set_t *rs)
 	if (!rs)
 		return;
 	if (rs->row_hd)
-		qmap_close(rs->row_hd);
+		corm_close(rs->row_hd);
 	/* fields_hd always non-owned (points into registry) */
 	rs->row_hd = 0;
 	rs->fields_hd = 0;
@@ -261,7 +261,7 @@ void hyle_row_set_free(hyle_row_set_t *rs)
 #define PREFILTER_MAX_FIELDS 16
 #define PREFILTER_MAX_VALUES 32
 
-/* Intersection of two qmap sets; returns a new handle (caller closes it
+/* Intersection of two corm sets; returns a new handle (caller closes it
  * plus both inputs). 0 when either input is empty or alloc fails. */
 static unsigned intersect_hds(unsigned a, unsigned b)
 {
@@ -272,21 +272,21 @@ static unsigned intersect_hds(unsigned a, unsigned b)
 
 	if (!a || !b)
 		return 0;
-	if (qmap_count(a, NULL) > qmap_count(b, NULL)) {
+	if (corm_count(a, NULL) > corm_count(b, NULL)) {
 		unsigned tmp = a;
 
 		a = b;
 		b = tmp;
 	}
-	out_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF, 0);
+	out_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
 	if (!out_hd)
 		return 0;
-	cur = qmap_iter(a, NULL, 0);
-	while (qmap_next(&k, &v, cur)) {
-		if (qmap_get(b, (const char *)k))
-			qmap_put(out_hd, (const char *)k, "");
+	cur = corm_iter(a, NULL, 0);
+	while (corm_next(&k, &v, cur)) {
+		if (corm_get(b, (const char *)k))
+			corm_put(out_hd, (const char *)k, "");
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 	return out_hd;
 }
 
@@ -402,7 +402,7 @@ static unsigned prefilter_multi_ref(
 		if (e->fields[sj].type != HYLE_FIELD_MULTI_REFERENCE &&
 		    e->fields[sj].type != HYLE_FIELD_REFERENCE)
 			continue;
-		/* MULTI_REFERENCE needs target for qmap_pos slug→pos resolution */
+		/* MULTI_REFERENCE needs target for corm_pos slug→pos resolution */
 		if (e->fields[sj].type == HYLE_FIELD_MULTI_REFERENCE) {
 			target = e->fields[sj].target_source
 			                 ? find_entry(e->fields[sj].target_source)
@@ -517,7 +517,7 @@ static unsigned prefilter_multi_ref(
 
 				if (field_type[fk] ==
 				    HYLE_FIELD_MULTI_REFERENCE) {
-					uint32_t pos = qmap_pos(
+					uint32_t pos = corm_pos(
 					        field_target[fk]->fields_hd,
 					        slug);
 
@@ -544,18 +544,18 @@ static unsigned prefilter_multi_ref(
 			               ? (strcmp(override_op, "and") == 0)
 			               : e->fields[field_sj[fk]].combine;
 
-			set_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF,
+			set_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF,
 			                   0);
 			if (!set_hd)
 				continue;
-			cur = qmap_iter(base_hd ? base_hd : e->row_hd, NULL,
+			cur = corm_iter(base_hd ? base_hd : e->row_hd, NULL,
 			                0);
-			while (qmap_next(&k, &v, cur)) {
+			while (corm_next(&k, &v, cur)) {
 				const char *rid = (const char *)k;
 				const char *fv;
 				int m;
 
-				fv = qmap_field_get(e->fields_hd, rid,
+				fv = corm_field_get(e->fields_hd, rid,
 				                    field_names[fk]);
 				if (field_type[fk] == HYLE_FIELD_REFERENCE) {
 					/* AND on a single-valued field: a value
@@ -572,16 +572,16 @@ static unsigned prefilter_multi_ref(
 					                          nvals);
 				}
 				if (m)
-					qmap_put(set_hd, rid, "");
+					corm_put(set_hd, rid, "");
 			}
-			qmap_fin(cur);
+			corm_fin(cur);
 
 			if (pre_hd) {
 				unsigned next_hd =
 				        intersect_hds(pre_hd, set_hd);
 
-				qmap_close(pre_hd);
-				qmap_close(set_hd);
+				corm_close(pre_hd);
+				corm_close(set_hd);
 				pre_hd = next_hd;
 			} else {
 				pre_hd = set_hd;
@@ -645,8 +645,8 @@ static unsigned prefilter_fts(
 		const void *v;
 
 		stoma_clear(e->stoma);
-		cur = qmap_iter(e->row_hd, NULL, 0);
-		while (qmap_next(&k, &v, cur)) {
+		cur = corm_iter(e->row_hd, NULL, 0);
+		while (corm_next(&k, &v, cur)) {
 			const char *rid = (const char *)k;
 			size_t sj;
 
@@ -666,7 +666,7 @@ static unsigned prefilter_fts(
 					snprintf(
 					        key, sizeof(key), "%s:%s", rid,
 					        fname);
-					fv = qmap_get(e->fields_hd, key);
+					fv = corm_get(e->fields_hd, key);
 				}
 				if (fv && *fv) {
 					stoma_index(
@@ -675,7 +675,7 @@ static unsigned prefilter_fts(
 				}
 			}
 		}
-		qmap_fin(cur);
+		corm_fin(cur);
 		e->stoma_dirty = 0;
 	}
 
@@ -702,7 +702,7 @@ static unsigned prefilter_fts(
 		if (!e->fields[sj].searchable)
 			continue;
 
-		tmp_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF, 0);
+		tmp_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
 		if (!tmp_hd)
 			continue;
 
@@ -714,7 +714,7 @@ static unsigned prefilter_fts(
 			if (vlen >= 2 && value[vlen - 1] == '"') {
 				inner = malloc(vlen - 1);
 				if (!inner) {
-					qmap_close(tmp_hd);
+					corm_close(tmp_hd);
 					continue;
 				}
 				memcpy(inner, value + 1, vlen - 2);
@@ -733,28 +733,28 @@ static unsigned prefilter_fts(
 			stoma_query(e->stoma, fname, value, tmp_hd, &handled);
 		}
 		if (!handled) {
-			qmap_close(tmp_hd);
+			corm_close(tmp_hd);
 			continue;
 		}
 
 		if (fts_hd) {
 			/* Intersect: keep rows present in both sets */
 			unsigned next_hd =
-			        qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF, 0);
+			        corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
 			if (!next_hd) {
-				qmap_close(tmp_hd);
+				corm_close(tmp_hd);
 				continue;
 			}
-			cur = qmap_iter(fts_hd, NULL, 0);
-			while (qmap_next(&k, &v, cur)) {
+			cur = corm_iter(fts_hd, NULL, 0);
+			while (corm_next(&k, &v, cur)) {
 				const char *rid = (const char *)k;
 
-				if (qmap_get(tmp_hd, rid))
-					qmap_put(next_hd, rid, "");
+				if (corm_get(tmp_hd, rid))
+					corm_put(next_hd, rid, "");
 			}
-			qmap_fin(cur);
-			qmap_close(fts_hd);
-			qmap_close(tmp_hd);
+			corm_fin(cur);
+			corm_close(fts_hd);
+			corm_close(tmp_hd);
 			fts_hd = next_hd;
 		} else {
 			fts_hd = tmp_hd;
@@ -794,13 +794,13 @@ static const char *ref_token_label(
 	if (token[0] >= '0' && token[0] <= '9') {
 		const char *pos_slug;
 
-		pos_slug = qmap_get_key(
+		pos_slug = corm_get_key(
 		        target->fields_hd, (uint32_t)atoi(token));
 		if (pos_slug)
 			slug = pos_slug;
 	}
 	snprintf(key, sizeof(key), "%s:%s", slug, df);
-	return (const char *)qmap_get(target->fields_hd, key);
+	return (const char *)corm_get(target->fields_hd, key);
 }
 
 static int token_label_matches(
@@ -863,7 +863,7 @@ static int row_matches_q(
 			stored = hyle_derive_call(def, f->derive_key, row_id, f->name, NULL);
 		} else {
 			snprintf(key, sizeof(key), "%s:%s", row_id, f->name);
-			stored = (const char *)qmap_get(e->fields_hd, key);
+			stored = (const char *)corm_get(e->fields_hd, key);
 		}
 		if (stored && (punct_norm ? hyle_ci_substr_punct(stored, q) : hyle_ci_substr(stored, q)))
 			return 1;
@@ -894,17 +894,17 @@ static unsigned prefilter_q(
 
 	if (!q || !*q || !base_hd)
 		return 0;
-	q_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF, 0);
+	q_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
 	if (!q_hd)
 		return 0;
-	cur = qmap_iter(base_hd, NULL, 0);
-	while (qmap_next(&k, &v, cur)) {
+	cur = corm_iter(base_hd, NULL, 0);
+	while (corm_next(&k, &v, cur)) {
 		const char *rid = (const char *)k;
 
 		if (row_matches_q(e, rid, q, 1))
-			qmap_put(q_hd, rid, "");
+			corm_put(q_hd, rid, "");
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 	return q_hd;
 }
 
@@ -976,11 +976,11 @@ int hyle_registry_query(
 	        &total32);
 
 	if (q_hd)
-		qmap_close(q_hd);
+		corm_close(q_hd);
 	if (pre_hd)
-		qmap_close(pre_hd);
+		corm_close(pre_hd);
 	if (fts_hd)
-		qmap_close(fts_hd);
+		corm_close(fts_hd);
 	free(local_filters);
 
 	if (total_out)
@@ -1093,7 +1093,7 @@ int hyle_row_set_to_rows(
 	if (!rs || !rows_out || !count_out)
 		return -1;
 
-	total = qmap_count(rs->row_hd, NULL);
+	total = corm_count(rs->row_hd, NULL);
 	*count_out = (size_t)total;
 	*rows_out = NULL;
 
@@ -1105,8 +1105,8 @@ int hyle_row_set_to_rows(
 		return -1;
 
 	ri = 0;
-	cur = qmap_iter(rs->row_hd, NULL, 0);
-	while (qmap_next(&k, &v, cur)) {
+	cur = corm_iter(rs->row_hd, NULL, 0);
+	while (corm_next(&k, &v, cur)) {
 		const char *id = (const char *)k;
 		size_t cap = 16;
 		size_t cnt = 0;
@@ -1118,7 +1118,7 @@ int hyle_row_set_to_rows(
 		if (!names || !values) {
 			free(names);
 			free(values);
-			qmap_fin(cur);
+			corm_fin(cur);
 			hyle_rows_free(rows, ri);
 			return -1;
 		}
@@ -1126,8 +1126,8 @@ int hyle_row_set_to_rows(
 		snprintf(prefix, sizeof(prefix), "%s:", id);
 		plen = strlen(prefix);
 
-		fcur = qmap_iter(rs->fields_hd, NULL, 0);
-		while (qmap_next(&fk, &fv, fcur)) {
+		fcur = corm_iter(rs->fields_hd, NULL, 0);
+		while (corm_next(&fk, &fv, fcur)) {
 			const char *key = (const char *)fk;
 			const char **tmp;
 
@@ -1138,8 +1138,8 @@ int hyle_row_set_to_rows(
 				tmp = (const char **)realloc(
 				        (void *)names, cap * sizeof(char *));
 				if (!tmp) {
-					qmap_fin(fcur);
-					qmap_fin(cur);
+					corm_fin(fcur);
+					corm_fin(cur);
 					free((void *)names);
 					free((void *)values);
 					hyle_rows_free(rows, ri);
@@ -1149,8 +1149,8 @@ int hyle_row_set_to_rows(
 				tmp = (const char **)realloc(
 				        (void *)values, cap * sizeof(char *));
 				if (!tmp) {
-					qmap_fin(fcur);
-					qmap_fin(cur);
+					corm_fin(fcur);
+					corm_fin(cur);
 					free((void *)names);
 					free((void *)values);
 					hyle_rows_free(rows, ri);
@@ -1162,7 +1162,7 @@ int hyle_row_set_to_rows(
 			values[cnt] = strdup((const char *)fv);
 			cnt++;
 		}
-		qmap_fin(fcur);
+		corm_fin(fcur);
 
 		rows[ri].id = strdup(id);
 		rows[ri].field_names = names;
@@ -1170,7 +1170,7 @@ int hyle_row_set_to_rows(
 		rows[ri].field_count = cnt;
 		ri++;
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 
 	*rows_out = rows;
 	return 0;
@@ -1197,15 +1197,15 @@ static int ordered_partition_count(unsigned row_hd, const char *pval)
 {
 	size_t plen = strlen(pval);
 	int count = 0;
-	uint32_t cur = qmap_iter(row_hd, NULL, 0);
+	uint32_t cur = corm_iter(row_hd, NULL, 0);
 	const void *k, *v;
-	while (qmap_next(&k, &v, cur)) {
+	while (corm_next(&k, &v, cur)) {
 		const char *key = (const char *)k;
 		if (strncmp(key, pval, plen) == 0 && key[plen] == '_' &&
 		    key[plen + 1] == '_')
 			count++;
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 	return count;
 }
 
@@ -1218,24 +1218,24 @@ ordered_move_key(registry_entry_t *e, const char *pval, int from, int to)
 	ordered_build_key(new_key, sizeof(new_key), pval, to);
 
 	if (e->record_id) {
-		/* Record-aware: copy entire struct to avoid qmap_put resize
-		 * invalidating the pointer returned by qmap_get. */
-		const void *data = qmap_get(e->fields_hd, old_key);
+		/* Record-aware: copy entire struct to avoid corm_put resize
+		 * invalidating the pointer returned by corm_get. */
+		const void *data = corm_get(e->fields_hd, old_key);
 		if (data) {
-			size_t sz = qmap_type_len(qmap_get_vtype(e->fields_hd));
+			size_t sz = corm_type_len(corm_get_vtype(e->fields_hd));
 			void *buf = malloc(sz);
 			if (buf) {
 				memcpy(buf, data, sz);
-				qmap_put(e->fields_hd, new_key, buf);
+				corm_put(e->fields_hd, new_key, buf);
 				free(buf);
 			}
 		}
 	} else {
 		/* Plain map: iterate and rename field entries. */
 		size_t olen = strlen(old_key);
-		uint32_t cur = qmap_iter(e->fields_hd, NULL, 0);
+		uint32_t cur = corm_iter(e->fields_hd, NULL, 0);
 		const void *k, *v;
-		while (qmap_next(&k, &v, cur)) {
+		while (corm_next(&k, &v, cur)) {
 			const char *fkey = (const char *)k;
 			if (strncmp(fkey, old_key, olen) != 0)
 				continue;
@@ -1244,13 +1244,13 @@ ordered_move_key(registry_entry_t *e, const char *pval, int from, int to)
 			const char *fname = fkey + olen + 1;
 			char nk[256];
 			snprintf(nk, sizeof(nk), "%s:%s", new_key, fname);
-			qmap_put(e->fields_hd, nk, (const char *)v);
+			corm_put(e->fields_hd, nk, (const char *)v);
 		}
-		qmap_fin(cur);
+		corm_fin(cur);
 	}
-	qmap_put(e->row_hd, new_key, "");
-	qmap_del(e->row_hd, old_key);
-	qmap_del(e->fields_hd, old_key);
+	corm_put(e->row_hd, new_key, "");
+	corm_del(e->row_hd, old_key);
+	corm_del(e->fields_hd, old_key);
 	if (e->stoma)
 		e->stoma_dirty = 1;
 }
@@ -1266,14 +1266,14 @@ static int ordered_ensure_loaded(const char *source_id, const char *pval)
 		return -1;
 	if (!pval || !pval[0])
 		return -1;
-	if (qmap_get(e->loaded_hd, pval))
+	if (corm_get(e->loaded_hd, pval))
 		return 0;
-	qmap_put(e->loaded_hd, pval, "");
+	corm_put(e->loaded_hd, pval, "");
 	if (e->load_fn)
 		e->load_fn(source_id, pval, e->fields_hd, e->persist_user);
 	count = ordered_partition_count(e->row_hd, pval);
 	snprintf(c, sizeof(c), "%d", count);
-	qmap_put(e->order_hd, pval, c);
+	corm_put(e->order_hd, pval, c);
 	return 0;
 }
 
@@ -1287,14 +1287,14 @@ static int ordered_save(const char *source_id, const char *pval)
 	return e->save_fn(source_id, pval, e->fields_hd, e->persist_user);
 }
 
-/* ---- auto-record (create qmap record from hyle field metadata) --------- */
+/* ---- auto-record (create corm record from hyle field metadata) --------- */
 
 #define HYLE_AUTO_MAX_FIELDS 64
 
 static uint32_t
 hyle_registry_auto_record(const hyle_field_t *fields, size_t field_count)
 {
-	qmap_record_field_t qfields[HYLE_AUTO_MAX_FIELDS];
+	corm_record_field_t qfields[HYLE_AUTO_MAX_FIELDS];
 	size_t target_idx[HYLE_AUTO_MAX_FIELDS];
 	size_t n;
 	size_t struct_size;
@@ -1312,20 +1312,20 @@ hyle_registry_auto_record(const hyle_field_t *fields, size_t field_count)
 		case HYLE_FIELD_NULLABLE_STRING:
 			sz = fields[i].max_length > 0 ? fields[i].max_length
 			                              : 256;
-			qt = QM_STR;
+			qt = CM_STR;
 			break;
 		case HYLE_FIELD_INT:
 		case HYLE_FIELD_BOOL:
 			sz = 16;
-			qt = QM_STR;
+			qt = CM_STR;
 			break;
 		case HYLE_FIELD_REFERENCE:
 			sz = 128;
-			qt = QM_REFERENCE;
+			qt = CM_REFERENCE;
 			break;
 		case HYLE_FIELD_MULTI_REFERENCE:
 			sz = 1024;
-			qt = QM_MULTI_REFERENCE;
+			qt = CM_MULTI_REFERENCE;
 			break;
 		default:
 			continue;
@@ -1346,22 +1346,22 @@ hyle_registry_auto_record(const hyle_field_t *fields, size_t field_count)
 	if (n == 0)
 		return 0;
 
-	rid = qmap_record_register("hyle_auto", struct_size, qfields, n);
+	rid = corm_record_register("hyle_auto", struct_size, qfields, n);
 
 	if (rid == UINT32_MAX)
 		return 0;
 
 	/* Resolve target handles for reference fields */
 	for (i = 0; i < n; i++) {
-		if (qfields[i].type == QM_REFERENCE ||
-		    qfields[i].type == QM_MULTI_REFERENCE)
+		if (qfields[i].type == CM_REFERENCE ||
+		    qfields[i].type == CM_MULTI_REFERENCE)
 		{
 			size_t fi = target_idx[i];
 			if (fields[fi].target_source) {
 				unsigned thd = hyle_registry_get_fields_hd(
 				        fields[fi].target_source);
 				if (thd)
-					qmap_record_field_set_target_hd(
+					corm_record_field_set_target_hd(
 					        rid, qfields[i].name, thd);
 			}
 		}
@@ -1398,17 +1398,17 @@ unsigned hyle_ordered_register(
 		return 0;
 	/* Close previous order/loaded maps if re-registering */
 	if (e->order_hd)
-		qmap_close(e->order_hd);
+		corm_close(e->order_hd);
 	if (e->loaded_hd)
-		qmap_close(e->loaded_hd);
+		corm_close(e->loaded_hd);
 	e->ordered = 1;
 	strncpy(e->partition_field, partition_field ? partition_field : "",
 	        sizeof(e->partition_field) - 1);
 	e->load_fn = load_fn;
 	e->save_fn = save_fn;
 	e->persist_user = persist_user;
-	e->order_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0x3F, 0);
-	e->loaded_hd = qmap_open(NULL, NULL, QM_STR, QM_STR, 0x3F, 0);
+	e->order_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0x3F, 0);
+	e->loaded_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0x3F, 0);
 	return fhd;
 }
 
@@ -1422,7 +1422,7 @@ int hyle_ordered_count(const char *source_id, const char *pval)
 	e = find_entry(source_id);
 	if (!e)
 		return 0;
-	c = qmap_get(e->order_hd, pval);
+	c = corm_get(e->order_hd, pval);
 	return c ? atoi(c) : 0;
 }
 
@@ -1454,7 +1454,7 @@ int hyle_ordered_append(
 	if (!e)
 		return -1;
 	snprintf(c, sizeof(c), "%d", n + 1);
-	qmap_put(e->order_hd, pval, c);
+	corm_put(e->order_hd, pval, c);
 	ordered_save(source_id, pval);
 	return 0;
 }
@@ -1484,7 +1484,7 @@ int hyle_ordered_insert_at(
 	hyle_registry_put(source_id, key, names, values, count);
 	n++;
 	snprintf(c, sizeof(c), "%d", n);
-	qmap_put(e->order_hd, pval, c);
+	corm_put(e->order_hd, pval, c);
 	ordered_save(source_id, pval);
 	return 0;
 }
@@ -1512,7 +1512,7 @@ void hyle_ordered_remove_at(
 		ordered_move_key(e, pval, i + 1, i);
 	n--;
 	snprintf(c, sizeof(c), "%d", n);
-	qmap_put(e->order_hd, pval, c);
+	corm_put(e->order_hd, pval, c);
 	ordered_save(source_id, pval);
 }
 
@@ -1534,7 +1534,7 @@ void hyle_ordered_clear(const char *source_id, const char *pval)
 		ordered_build_key(key, sizeof(key), pval, i);
 		hyle_registry_del(source_id, key);
 	}
-	qmap_put(e->order_hd, pval, "0");
+	corm_put(e->order_hd, pval, "0");
 	ordered_save(source_id, pval);
 }
 

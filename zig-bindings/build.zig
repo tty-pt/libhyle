@@ -5,9 +5,9 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const hyle_inc = b.path("../include");
-    const qmap_inc = b.path("../../libqmap/include");
+    const corm_inc = b.path("../../libcorm/include");
     const hyle_lib = b.path("../lib");
-    const qmap_lib = b.path("../../libqmap/lib");
+    const corm_lib = b.path("../../libcorm/lib");
 
     const is_wasm = target.result.cpu.arch == .wasm32;
 
@@ -21,11 +21,11 @@ pub fn build(b: *std.Build) void {
 
     if (!is_wasm) {
         native_lib.addIncludePath(hyle_inc);
-        native_lib.addIncludePath(qmap_inc);
+        native_lib.addIncludePath(corm_inc);
         native_lib.addLibraryPath(hyle_lib);
-        native_lib.addLibraryPath(qmap_lib);
+        native_lib.addLibraryPath(corm_lib);
         native_lib.linkSystemLibrary("hyle");
-        native_lib.linkSystemLibrary("qmap");
+        native_lib.linkSystemLibrary("corm");
         native_lib.linkLibC();
     }
     b.installArtifact(native_lib);
@@ -53,11 +53,11 @@ pub fn build(b: *std.Build) void {
     });
     if (!is_wasm) {
         main_tests.addIncludePath(hyle_inc);
-        main_tests.addIncludePath(qmap_inc);
+        main_tests.addIncludePath(corm_inc);
         main_tests.addLibraryPath(hyle_lib);
-        main_tests.addLibraryPath(qmap_lib);
+        main_tests.addLibraryPath(corm_lib);
         main_tests.linkSystemLibrary("hyle");
-        main_tests.linkSystemLibrary("qmap");
+        main_tests.linkSystemLibrary("corm");
         main_tests.linkLibC();
     }
 

@@ -8,16 +8,16 @@
 #include "query.h"
 
 /* Ordered source flags for hyle_ordered_register */
-#define HYLE_REGISTRY_AUTO_RECORD  0x01  /* Auto-create qmap record from field metadata */
+#define HYLE_REGISTRY_AUTO_RECORD  0x01  /* Auto-create corm record from field metadata */
 
 /*
  * Register a source.
  *
  * Creates both the row map (row_hd) and the fields map (fields_hd) internally.
- * record_id: 0 → plain QM_STR value maps; non-zero → typed record qmaps
- *            created with qmap_record_type_id(record_id) + QM_RECORD flag.
+ * record_id: 0 → plain CM_STR value maps; non-zero → typed record corms
+ *            created with corm_record_type_id(record_id) + CM_RECORD flag.
  *
- * flags:     Extra qmap flags for the row_hd (e.g. QM_SORTED, QM_AINDEX).
+ * flags:     Extra corm flags for the row_hd (e.g. CM_SORTED, CM_AINDEX).
  *
  * user:      Opaque pointer stored in the registry.  Retrieve later with
  *            hyle_registry_get_user().  libhyle does not free it.
@@ -51,7 +51,7 @@ int hyle_registry_put(const char *source_id,
 void hyle_registry_del(const char *source_id, const char *row_id);
 
 /*
- * Filter → sort → paginate over the source's live qmaps.
+ * Filter → sort → paginate over the source's live corms.
  * Handles multi-reference position pre-filtering for typed-record sources
  * before delegating to hyle_apply_view.
  * *total_out receives total matching rows before pagination.

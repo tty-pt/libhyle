@@ -12,11 +12,11 @@
 #define HYLE_KIND_OVERLAY_STR 4 /* computed string overlay */
 #define HYLE_KIND_INVERSE     5 /* inverse virtual relation */
 
-/* ── Hyle Storage / QMap Types ────────────────────────────────── */
-#define HYLE_QM_STR           2
-#define HYLE_QM_REFERENCE     6
-#define HYLE_QM_MULTI_REF     7
-#define HYLE_QM_VSTR          8
+/* ── Hyle Storage / Corm Types ────────────────────────────────── */
+#define HYLE_CM_STR           2
+#define HYLE_CM_REFERENCE     6
+#define HYLE_CM_MULTI_REF     7
+#define HYLE_CM_VSTR          8
 
 /* Backward compatibility aliases */
 #ifndef BUD_RECORD
@@ -27,11 +27,11 @@
 #define BUD_OVERLAY_STR HYLE_KIND_OVERLAY_STR
 #define BUD_INVERSE HYLE_KIND_INVERSE
 #endif
-#ifndef BUD_QM_STR
-#define BUD_QM_STR HYLE_QM_STR
-#define BUD_QM_VSTR HYLE_QM_VSTR
-#define BUD_QM_REFERENCE HYLE_QM_REFERENCE
-#define BUD_QM_MULTI_REF HYLE_QM_MULTI_REF
+#ifndef BUD_CM_STR
+#define BUD_CM_STR HYLE_CM_STR
+#define BUD_CM_VSTR HYLE_CM_VSTR
+#define BUD_CM_REFERENCE HYLE_CM_REFERENCE
+#define BUD_CM_MULTI_REF HYLE_CM_MULTI_REF
 #endif
 
 /* ── Canonical Hyle Schema Descriptor ─────────────────────────── */
@@ -81,7 +81,7 @@ typedef struct hyle_schema_desc source_desc_t;
 	.size = sizeof(((st *)0)->name),                                       \
 	.is_int = 0,                                                           \
 	.kind = HYLE_KIND_RECORD,                                              \
-	.qm_type = HYLE_QM_STR,                                                \
+	.qm_type = HYLE_CM_STR,                                                \
 	.type = HYLE_FIELD_STRING,                                              \
 	.writable = 1,                                                         \
 	##__VA_ARGS__
@@ -112,7 +112,7 @@ typedef struct hyle_schema_desc source_desc_t;
 	.size = sizeof(((st *)0)->name),                                       \
 	.is_int = 0,                                                           \
 	.kind = HYLE_KIND_REF_DISPLAY,                                         \
-	.qm_type = HYLE_QM_REFERENCE,                                          \
+	.qm_type = HYLE_CM_REFERENCE,                                          \
 	.type = HYLE_FIELD_REFERENCE,                                           \
 	.writable = 1,                                                         \
 	.ref_source = target,                                                  \
@@ -145,7 +145,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		.size = 0,                                                     \
 		.is_int = 0,                                                   \
 		.kind = HYLE_KIND_EXCLUDE,                                     \
-		.qm_type = HYLE_QM_VSTR,                                       \
+		.qm_type = HYLE_CM_VSTR,                                       \
 		.type = HYLE_FIELD_STRING,                                      \
 		.writable = 1,                                                 \
 		.file = file_name,                                             \
@@ -160,7 +160,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		.size = 0,                                                     \
 		.is_int = 0,                                                   \
 		.kind = HYLE_KIND_EXCLUDE,                                     \
-		.qm_type = HYLE_QM_STR,                                        \
+		.qm_type = HYLE_CM_STR,                                        \
 		.type = HYLE_FIELD_DERIVED,                                     \
 		.writable = 0,                                                 \
 		.derive_key = derive_func_key,                                 \
@@ -191,7 +191,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		.size = sizeof(((st *)0)->name),                               \
 		.is_int = 0,                                                   \
 		.kind = HYLE_KIND_EXCLUDE,                                     \
-		.qm_type = HYLE_QM_STR,                                        \
+		.qm_type = HYLE_CM_STR,                                        \
 		.type = HYLE_FIELD_STRING,                                      \
 		##__VA_ARGS__                                                  \
 	}
@@ -238,56 +238,56 @@ typedef struct hyle_schema_desc source_desc_t;
 #define REC_FIELD(name, st, mb, sz, wr, rq, ml, im)                            \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_RECORD,             \
-		HYLE_QM_STR, { .type = HYLE_FIELD_STRING }, wr, rq, ml,        \
+		HYLE_CM_STR, { .type = HYLE_FIELD_STRING }, wr, rq, ml,        \
 		NULL, NULL, im, NULL, NULL, NULL, NULL, 0                      \
 	}
 
 #define REF_FIELD(name, st, mb, sz, src, inv, im)                              \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_REFERENCE, { .type = HYLE_FIELD_REFERENCE }, 1, 0, 0,  \
+		HYLE_CM_REFERENCE, { .type = HYLE_FIELD_REFERENCE }, 1, 0, 0,  \
 		src, inv, im, #name, NULL, NULL, NULL, 0                       \
 	}
 
 #define REF_FIELD_S(name, st, mb, sz, src, inv, im, style)                     \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_REFERENCE, { .type = HYLE_FIELD_REFERENCE }, 1, 0, 0,  \
+		HYLE_CM_REFERENCE, { .type = HYLE_FIELD_REFERENCE }, 1, 0, 0,  \
 		src, inv, im, #name, style, NULL, NULL, 0                      \
 	}
 
 #define REF_FIELD_SA(name, st, mb, sz, src, inv, im, style, add)              \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_REFERENCE, { .type = HYLE_FIELD_REFERENCE }, 1, 0, 0,  \
+		HYLE_CM_REFERENCE, { .type = HYLE_FIELD_REFERENCE }, 1, 0, 0,  \
 		src, inv, im, #name, style, NULL, NULL, add                    \
 	}
 
 #define MULTI_REF_FIELD(name, st, mb, sz, src, inv, im)                        \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
+		HYLE_CM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
 		1, 0, 0, src, inv, im, #name, NULL, NULL, NULL, 0              \
 	}
 
 #define MULTI_REF_FIELD_S(name, st, mb, sz, src, inv, im, style)               \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
+		HYLE_CM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
 		1, 0, 0, src, inv, im, #name, style, NULL, NULL, 0             \
 	}
 
 #define MULTI_REF_FIELD_SM(name, st, mb, sz, src, inv, im, style, mode)        \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
+		HYLE_CM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
 		1, 0, 0, src, inv, im, #name, style, mode, NULL, 0             \
 	}
 
 #define MULTI_REF_FIELD_SMA(name, st, mb, sz, src, inv, im, style, mode, add)  \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
-		HYLE_QM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
+		HYLE_CM_MULTI_REF, { .type = HYLE_FIELD_MULTI_REFERENCE },     \
 		1, 0, 0, src, inv, im, #name, style, mode, NULL, add          \
 	}
 
@@ -301,14 +301,14 @@ typedef struct hyle_schema_desc source_desc_t;
 #define EXCL_FIELD(name, st, mb, sz, ...)                                      \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_EXCLUDE,             \
-		HYLE_QM_STR, { .type = HYLE_FIELD_STRING }, 0, 0, 0,            \
+		HYLE_CM_STR, { .type = HYLE_FIELD_STRING }, 0, 0, 0,            \
 		NULL, NULL, 0, NULL, NULL, NULL, NULL, 0                       \
 	}
 
 #define EXCL_FIELD_M(name, st, mb, sz, im)                                     \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_EXCLUDE,             \
-		HYLE_QM_STR, { .type = HYLE_FIELD_STRING }, 0, 0, 0,            \
+		HYLE_CM_STR, { .type = HYLE_FIELD_STRING }, 0, 0, 0,            \
 		NULL, NULL, im, NULL, NULL, NULL, NULL, 0                      \
 	}
 
@@ -335,7 +335,7 @@ typedef struct hyle_schema_desc source_desc_t;
 
 #define DERIVED_FIELD(name, dkey)                                              \
 	{                                                                      \
-		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, HYLE_QM_STR,                \
+		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, HYLE_CM_STR,                \
 		{ .type = HYLE_FIELD_DERIVED }, 0, 0, 0, NULL, NULL, 0, NULL,  \
 		NULL, NULL, dkey, 0                                            \
 	}
@@ -357,20 +357,20 @@ typedef struct hyle_schema_desc source_desc_t;
 #define REQ_FIELD(name, st, mb, sz)                                            \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_RECORD,              \
-		HYLE_QM_STR, { .type = HYLE_FIELD_STRING }, 1, 1, 0,           \
+		HYLE_CM_STR, { .type = HYLE_FIELD_STRING }, 1, 1, 0,           \
 		NULL, NULL, 0, NULL, NULL, NULL, NULL, 0                       \
 	}
 
 #define REQ_FIELD_MIN(name, st, mb, sz, ml)                                    \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_RECORD,              \
-		HYLE_QM_STR, { .type = HYLE_FIELD_STRING }, 1, 1, ml,          \
+		HYLE_CM_STR, { .type = HYLE_FIELD_STRING }, 1, 1, ml,          \
 		NULL, NULL, 0, NULL, NULL, NULL, NULL, 0                       \
 	}
 
 #define VSTR_FIELD(name, fl)                                                   \
 	{                                                                      \
-		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, HYLE_QM_VSTR,               \
+		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, HYLE_CM_VSTR,               \
 		{ .type = HYLE_FIELD_STRING }, 1, 0, 0, NULL, NULL, 0,         \
 		fl, NULL, NULL, NULL, 0                                        \
 	}

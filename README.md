@@ -55,7 +55,7 @@ symbols** (a maintained boundary gate), it never speaks HTTP, and it is storage
 driver-agnostic — the persistence engine lives in the separate `libhyle-source`
 library. It knows data, not widgets.
 
-**Dependencies:** the `ttypt/qmap` opaque data store (row/field maps) and
+**Dependencies:** the `ttypt/corm` opaque data store (row/field maps) and
 `stoma` tokenization/search (FTS). On Windows, the POSIX regex wrapper pulls in
 `libpcre2-posix` / `libpcre2-8`. Nothing else.
 
@@ -77,7 +77,7 @@ Link it from your own C code:
 cc my_app.c $(pkg-config --cflags --libs hyle)
 ```
 
-`hyle.pc` also carries the kernel's own dependencies (`-lhyle -lqmap -lstoma`).
+`hyle.pc` also carries the kernel's own dependencies (`-lhyle -lcorm -lstoma`).
 
 ## Quickstart
 
@@ -125,7 +125,7 @@ array/map`), array ops (`hyle_val_array_push/get/len`), map ops
 (`hyle_val_map_set/get`), `hyle_val_to_json`.
 
 **Fields & schemas** (`field.h`, `schema.h`) — `hyle_field_t` +
-`hyle_field_type_t`; `hyle_schema_desc_t` (`HYLE_KIND_*`, `HYLE_QM_*`), the
+`hyle_field_type_t`; `hyle_schema_desc_t` (`HYLE_KIND_*`, `HYLE_CM_*`), the
 `FIELD_*` / `OVERLAY_*` / legacy `*_FIELD` macros, `hyle_field_by_name`,
 `hyle_field_is_reference`.
 

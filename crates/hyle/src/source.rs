@@ -8,7 +8,7 @@ use crate::Value;
 /// Raw storage field types — how a field value is encoded in a source backend.
 ///
 /// These describe the on-disk/wire format, not the blueprint semantics.
-/// Any backend (qmap, Postgres, SQLite) maps its native types to these.
+/// Any backend (corm, Postgres, SQLite) maps its native types to these.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FieldStorageType {
 	String,
@@ -48,7 +48,7 @@ pub struct SourceFieldDef {
 /// Describes a source's field layout — backend-agnostic.
 ///
 /// Backend-specific details (handles, C FFI pointers) live in backend
-/// provider crates (e.g. `hyle-source-qmap`), not here.
+/// provider crates (e.g. `hyle-source-corm`), not here.
 #[derive(Debug, Clone)]
 pub struct SourceDef {
 	pub id: String,
@@ -58,8 +58,8 @@ pub struct SourceDef {
 /// Pluggable source loader.
 ///
 /// Register an implementation with [`set_provider`] at startup.
-/// The default (`hyle-ndc` with `qmap` feature) implementation loads
-/// from ndc qmap handles.
+/// The default (`hyle-ndc` with `corm` feature) implementation loads
+/// from ndc corm handles.
 pub trait SourceProvider: Send + Sync {
 	fn load_source(&self, id: &str) -> Option<Source>;
 }

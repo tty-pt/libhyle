@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include "hyle/hyle.h"
 #include "hyle/registry.h"
-#include <ttypt/qmap.h>
+#include <ttypt/corm.h>
 
 static int failures = 0;
 static int total = 0;
@@ -191,7 +191,7 @@ static void test_map(void)
 
 static unsigned make_row_hd(void)
 {
-	return qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF, 0);
+	return corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
 }
 
 static void row_set_field(
@@ -199,12 +199,12 @@ static void row_set_field(
 {
 	char key[1024];
 	snprintf(key, sizeof(key), "%s:%s", id, field);
-	qmap_put(rs->fields_hd, key, val);
+	corm_put(rs->fields_hd, key, val);
 }
 
 static void row_set_add(hyle_row_set_t *rs, const char *id)
 {
-	qmap_put(rs->row_hd, id, "");
+	corm_put(rs->row_hd, id, "");
 }
 
 static void build_4rows(hyle_row_set_t *rs)
@@ -251,16 +251,16 @@ static int ids_match(
         const hyle_row_set_t *rs, const char **expected,
         uint32_t expected_count)
 {
-	uint32_t count = qmap_count(rs->row_hd, NULL);
+	uint32_t count = corm_count(rs->row_hd, NULL);
 	if (count != expected_count)
 		return 0;
 
-	uint32_t cur = qmap_iter(rs->row_hd, NULL, 0);
+	uint32_t cur = corm_iter(rs->row_hd, NULL, 0);
 	const void *k;
 	const void *v;
 	uint32_t found = 0;
 
-	while (qmap_next(&k, &v, cur)) {
+	while (corm_next(&k, &v, cur)) {
 		found++;
 		int ok = 0;
 		for (uint32_t i = 0; i < expected_count; i++) {
@@ -270,11 +270,11 @@ static int ids_match(
 			}
 		}
 		if (!ok) {
-			qmap_fin(cur);
+			corm_fin(cur);
 			return 0;
 		}
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 	return found == expected_count;
 }
 
@@ -282,17 +282,17 @@ static int ids_in_order(
         const hyle_row_set_t *rs, const char **expected,
         uint32_t expected_count)
 {
-	uint32_t count = qmap_count(rs->row_hd, NULL);
+	uint32_t count = corm_count(rs->row_hd, NULL);
 	if (count != expected_count)
 		return 0;
 
-	uint32_t cur = qmap_iter(rs->row_hd, NULL, 0);
+	uint32_t cur = corm_iter(rs->row_hd, NULL, 0);
 	const void *k;
 	const void *v;
 	uint32_t pos = 0;
 	int ok = 1;
 
-	while (qmap_next(&k, &v, cur)) {
+	while (corm_next(&k, &v, cur)) {
 		if (pos >= expected_count) {
 			ok = 0;
 			break;
@@ -303,16 +303,16 @@ static int ids_in_order(
 		}
 		pos++;
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 	return ok;
 }
 
 static void destroy_rows(hyle_row_set_t *rs)
 {
 	if (rs->row_hd)
-		qmap_close(rs->row_hd);
+		corm_close(rs->row_hd);
 	if (rs->fields_hd)
-		qmap_close(rs->fields_hd);
+		corm_close(rs->fields_hd);
 	rs->row_hd = 0;
 	rs->fields_hd = 0;
 }
@@ -538,7 +538,7 @@ static void test_filter_single_match(void)
 	CHECK_IDS(output, "song1", "song3");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -553,10 +553,10 @@ static void test_filter_no_match(void)
 	hyle_row_set_t output = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, NULL, filters, 1, NULL, 0, &output);
 
-	CHECK(qmap_count(output.row_hd, NULL) == 0, "empty result");
+	CHECK(corm_count(output.row_hd, NULL) == 0, "empty result");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -575,7 +575,7 @@ static void test_filter_multi_and(void)
 	CHECK_IDS(output, "song1");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -593,7 +593,7 @@ static void test_filter_fulltext(void)
 	CHECK_IDS(output, "song1", "song3");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -607,10 +607,10 @@ static void test_filter_fulltext_no_match(void)
 	hyle_row_set_t output = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, "zzzzz", NULL, 0, NULL, 0, &output);
 
-	CHECK(qmap_count(output.row_hd, NULL) == 0, "empty result");
+	CHECK(corm_count(output.row_hd, NULL) == 0, "empty result");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -630,7 +630,7 @@ static void test_filter_q_and_field(void)
 	CHECK_IDS(output, "song1", "song3");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -659,17 +659,17 @@ static void test_filter_accent_sensitive(void)
 
 	hyle_row_set_t o2 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, NULL, f2, 1, NULL, 0, &o2);
-	CHECK(qmap_count(o2.row_hd, NULL) == 0,
+	CHECK(corm_count(o2.row_hd, NULL) == 0,
 	      "unaccented query matches nothing");
 
 	hyle_row_set_t o3 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, NULL, f3, 1, NULL, 0, &o3);
-	CHECK(qmap_count(o3.row_hd, NULL) == 0,
+	CHECK(corm_count(o3.row_hd, NULL) == 0,
 	      "unaccented query matches nothing");
 
 	hyle_row_set_t o4 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, NULL, f4, 1, NULL, 0, &o4);
-	CHECK(qmap_count(o4.row_hd, NULL) == 0, "no match");
+	CHECK(corm_count(o4.row_hd, NULL) == 0, "no match");
 
 	hyle_row_set_t o5 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, "Maçã", NULL, 0, NULL, 0, &o5);
@@ -677,15 +677,15 @@ static void test_filter_accent_sensitive(void)
 
 	hyle_row_set_t o6 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, "maca", NULL, 0, NULL, 0, &o6);
-	CHECK(qmap_count(o6.row_hd, NULL) == 0,
+	CHECK(corm_count(o6.row_hd, NULL) == 0,
 	      "unaccented search matches nothing");
 
-	qmap_close(o1.row_hd);
-	qmap_close(o2.row_hd);
-	qmap_close(o3.row_hd);
-	qmap_close(o4.row_hd);
-	qmap_close(o5.row_hd);
-	qmap_close(o6.row_hd);
+	corm_close(o1.row_hd);
+	corm_close(o2.row_hd);
+	corm_close(o3.row_hd);
+	corm_close(o4.row_hd);
+	corm_close(o5.row_hd);
+	corm_close(o6.row_hd);
 	destroy_rows(&input);
 	hyle_ctx_free(ctx);
 }
@@ -735,21 +735,21 @@ static void test_filter_punctuation_normalized(void)
 	hyle_field_filter_t f1[] = { { "title", "senhor vela por mim" } };
 	hyle_row_set_t o7 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, NULL, f1, 1, NULL, 0, &o7);
-	CHECK(qmap_count(o7.row_hd, NULL) == 0, "field filter no punct norm");
+	CHECK(corm_count(o7.row_hd, NULL) == 0, "field filter no punct norm");
 
 	hyle_field_filter_t f2[] = { { "title", "Senhor, vela por mim" } };
 	hyle_row_set_t o8 = { make_row_hd(), 0 };
 	hyle_filter_rows(ctx, &input, NULL, f2, 1, NULL, 0, &o8);
 	CHECK_IDS(o8, "song1");
 
-	qmap_close(o1.row_hd);
-	qmap_close(o2.row_hd);
-	qmap_close(o3.row_hd);
-	qmap_close(o4.row_hd);
-	qmap_close(o5.row_hd);
-	qmap_close(o6.row_hd);
-	qmap_close(o7.row_hd);
-	qmap_close(o8.row_hd);
+	corm_close(o1.row_hd);
+	corm_close(o2.row_hd);
+	corm_close(o3.row_hd);
+	corm_close(o4.row_hd);
+	corm_close(o5.row_hd);
+	corm_close(o6.row_hd);
+	corm_close(o7.row_hd);
+	corm_close(o8.row_hd);
 	destroy_rows(&input);
 	hyle_ctx_free(ctx);
 }
@@ -773,7 +773,7 @@ static void test_sort_string_asc(void)
 	CHECK_ORDER(output, "song2", "song3", "song1", "song4");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -790,7 +790,7 @@ static void test_sort_string_desc(void)
 	CHECK_ORDER(output, "song4", "song1", "song3", "song2");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -808,7 +808,7 @@ static void test_sort_numeric_asc(void)
 	CHECK_ORDER(output, "song3", "song4", "song1", "song2");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -825,7 +825,7 @@ static void test_sort_numeric_desc(void)
 	CHECK_ORDER(output, "song2", "song1", "song4", "song3");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -839,10 +839,10 @@ static void test_sort_noop(void)
 	hyle_row_set_t output = { make_row_hd(), 0 };
 	hyle_sort_rows(ctx, &input, NULL, 1, &output);
 
-	CHECK(qmap_count(output.row_hd, NULL) == 4, "all 4 rows passthrough");
+	CHECK(corm_count(output.row_hd, NULL) == 4, "all 4 rows passthrough");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -862,10 +862,10 @@ static void test_paginate_page1(void)
 	hyle_paginate(ctx, &input, 1, 10, &output, &got_total);
 
 	CHECK(got_total == 25, "total 25");
-	CHECK(qmap_count(output.row_hd, NULL) == 10, "page 1 has 10 rows");
+	CHECK(corm_count(output.row_hd, NULL) == 10, "page 1 has 10 rows");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -881,10 +881,10 @@ static void test_paginate_page3(void)
 	hyle_paginate(ctx, &input, 3, 10, &output, &got_total);
 
 	CHECK(got_total == 25, "total 25");
-	CHECK(qmap_count(output.row_hd, NULL) == 5, "page 3 has 5 rows");
+	CHECK(corm_count(output.row_hd, NULL) == 5, "page 3 has 5 rows");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -900,10 +900,10 @@ static void test_paginate_beyond(void)
 	hyle_paginate(ctx, &input, 10, 10, &output, &got_total);
 
 	CHECK(got_total == 25, "total 25");
-	CHECK(qmap_count(output.row_hd, NULL) == 0, "empty result");
+	CHECK(corm_count(output.row_hd, NULL) == 0, "empty result");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -919,10 +919,10 @@ static void test_paginate_all(void)
 	hyle_paginate(ctx, &input, 1, 0, &output, &got_total);
 
 	CHECK(got_total == 25, "total 25");
-	CHECK(qmap_count(output.row_hd, NULL) == 25, "all 25 rows");
+	CHECK(corm_count(output.row_hd, NULL) == 25, "all 25 rows");
 
 	destroy_rows(&input);
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_ctx_free(ctx);
 }
 
@@ -946,12 +946,12 @@ static void test_apply_view_full(void)
 	hyle_apply_view(ctx, &input, &q, NULL, 0, &output, &got_total);
 
 	CHECK(got_total == 25, "total 25");
-	CHECK(qmap_count(output.row_hd, NULL) == 5, "5 rows page 1");
+	CHECK(corm_count(output.row_hd, NULL) == 5, "5 rows page 1");
 	/* sorted by val numeric asc: song1(1), song2(2), song3(3), ... */
 	CHECK_ORDER(output, "song1", "song2", "song3", "song4", "song5");
 	CHECK(output.fields_hd == input.fields_hd, "fields_hd shared");
 
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_query_clear(&q);
 	destroy_rows(&input);
 	hyle_ctx_free(ctx);
@@ -973,10 +973,10 @@ static void test_apply_view_noop(void)
 	hyle_apply_view(ctx, &input, &q, NULL, 0, &output, &got_total);
 
 	CHECK(got_total == 4, "total 4");
-	CHECK(qmap_count(output.row_hd, NULL) == 4, "all 4 rows");
+	CHECK(corm_count(output.row_hd, NULL) == 4, "all 4 rows");
 	CHECK_IDS(output, "song1", "song2", "song3", "song4");
 
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_query_clear(&q);
 	destroy_rows(&input);
 	hyle_ctx_free(ctx);
@@ -1000,7 +1000,7 @@ static void test_apply_view_filter_only(void)
 	CHECK(got_total == 2, "total 2");
 	CHECK_IDS(output, "song1", "song3");
 
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_query_clear(&q);
 	destroy_rows(&input);
 	hyle_ctx_free(ctx);
@@ -1024,7 +1024,7 @@ static void test_apply_view_sort_only(void)
 	CHECK(got_total == 4, "total 4");
 	CHECK_ORDER(output, "song2", "song3", "song1", "song4");
 
-	qmap_close(output.row_hd);
+	corm_close(output.row_hd);
 	hyle_query_clear(&q);
 	destroy_rows(&input);
 	hyle_ctx_free(ctx);
@@ -1529,22 +1529,22 @@ static void test_fts(void)
 	/* exact token */
 	fts_query_filter("title", "night", &out);
 	CHECK_IDS(out, "song1", "song3");
-	qmap_close(out.row_hd);
+	corm_close(out.row_hd);
 
 	/* prefix: st → starlight + station, NOT nostalgia */
 	fts_query_filter("title", "st", &out);
 	CHECK_IDS(out, "song1", "song2");
-	qmap_close(out.row_hd);
+	corm_close(out.row_hd);
 
 	/* two-token AND */
 	fts_query_filter("title", "dark night", &out);
 	CHECK_IDS(out, "song3");
-	qmap_close(out.row_hd);
+	corm_close(out.row_hd);
 
 	/* case-insensitive author */
 	fts_query_filter("author", "ALICE", &out);
 	CHECK_IDS(out, "song1", "song3");
-	qmap_close(out.row_hd);
+	corm_close(out.row_hd);
 
 	/* mixed searchable + non-searchable AND */
 	{
@@ -1559,7 +1559,7 @@ static void test_fts(void)
 		q.filter_count = 2;
 		hyle_registry_query("fts.test", &q, &out, NULL);
 		CHECK_IDS(out, "song1", "song3");
-		qmap_close(out.row_hd);
+		corm_close(out.row_hd);
 	}
 
 	/* two searchable filters AND */
@@ -1575,34 +1575,34 @@ static void test_fts(void)
 		q.filter_count = 2;
 		hyle_registry_query("fts.test", &q, &out, NULL);
 		CHECK_IDS(out, "song1", "song3");
-		qmap_close(out.row_hd);
+		corm_close(out.row_hd);
 	}
 
 	/* update → lazy rebuild: stale token gone, new token matches */
 	fts_put_row("song1", "Brand New Title", "Alice Smith", "2020");
 	fts_query_filter("title", "starlight", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0,
+	CHECK(corm_count(out.row_hd, NULL) == 0,
 	      "stale token gone after update");
-	qmap_close(out.row_hd);
+	corm_close(out.row_hd);
 	fts_query_filter("title", "brand", &out);
 	CHECK_IDS(out, "song1");
-	qmap_close(out.row_hd);
+	corm_close(out.row_hd);
 
 	/* delete → gone */
 	hyle_registry_del("fts.test", "song2");
 	fts_query_filter("title", "st", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "deleted row gone");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 0, "deleted row gone");
+	corm_close(out.row_hd);
 
 	/* empty filter value → no-op, matches everything */
 	fts_query_filter("title", "", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 3, "empty filter matches all");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 3, "empty filter matches all");
+	corm_close(out.row_hd);
 
 	/* non-searchable field still filtered by the old path */
 	fts_query_filter("year", "2021", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "year filter via old path");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 0, "year filter via old path");
+	corm_close(out.row_hd);
 }
 
 typedef struct {
@@ -1612,10 +1612,10 @@ typedef struct {
 
 static void test_fts_record(void)
 {
-	static const qmap_record_field_t rec_fields[2] = {
-		{ "title", QM_STR, offsetof(fts_rec_t, title),
+	static const corm_record_field_t rec_fields[2] = {
+		{ "title", CM_STR, offsetof(fts_rec_t, title),
 		  sizeof(((fts_rec_t *)0)->title), 0, 0, NULL },
-		{ "author", QM_STR, offsetof(fts_rec_t, author),
+		{ "author", CM_STR, offsetof(fts_rec_t, author),
 		  sizeof(((fts_rec_t *)0)->author), 0, 0, NULL },
 	};
 	static const hyle_field_t fields[2] = {
@@ -1632,39 +1632,39 @@ static void test_fts_record(void)
 
 	printf("\n=== record-aware hyle_registry_put (FTS) ===\n");
 
-	rec = qmap_record_register("fts.rec", sizeof(fts_rec_t), rec_fields, 2);
-	CHECK(rec != QM_MISS, "record layout registered");
+	rec = corm_record_register("fts.rec", sizeof(fts_rec_t), rec_fields, 2);
+	CHECK(rec != CM_MISS, "record layout registered");
 
 	fhd = hyle_registry_register("fts.rec", fields, 2, rec, 0, NULL);
 	CHECK(fhd != 0, "record source registered");
 
 	hyle_registry_put("fts.rec", "r1", names, values, 2);
 
-	/* record branch wrote via qmap_field_put → struct field set */
-	CHECK(strcmp(qmap_field_get(fhd, "r1", "title"),
+	/* record branch wrote via corm_field_put → struct field set */
+	CHECK(strcmp(corm_field_get(fhd, "r1", "title"),
 	             "Starlight over record") == 0,
-	      "record branch: title round-trips via qmap_field_get");
+	      "record branch: title round-trips via corm_field_get");
 
 	/* FTS over the record source (first query rebuilds) */
 	fts_query_src("fts.rec", "title", "star", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 1, "record FTS query hits r1");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 1, "record FTS query hits r1");
+	corm_close(out.row_hd);
 
 	/* foreign-writer update via put → dirty → lazy rebuild */
 	values[0] = "Moonlight now";
 	hyle_registry_put("fts.rec", "r1", names, values, 2);
 	fts_query_src("fts.rec", "title", "starlight", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "stale token gone (record)");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 0, "stale token gone (record)");
+	corm_close(out.row_hd);
 	fts_query_src("fts.rec", "title", "moonlight", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 1, "new token matches (record)");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 1, "new token matches (record)");
+	corm_close(out.row_hd);
 
 	/* delete → gone from the record source */
 	hyle_registry_del("fts.rec", "r1");
 	fts_query_src("fts.rec", "title", "moonlight", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "deleted record row gone");
-	qmap_close(out.row_hd);
+	CHECK(corm_count(out.row_hd, NULL) == 0, "deleted record row gone");
+	corm_close(out.row_hd);
 }
 
 /* ================================================================
@@ -1690,12 +1690,12 @@ typedef struct {
 	char tags[512];
 } ms_song_rec_t;
 
-static const qmap_record_field_t ms_rec_fields[3] = {
-	{ "id", QM_STR, offsetof(ms_song_rec_t, id),
+static const corm_record_field_t ms_rec_fields[3] = {
+	{ "id", CM_STR, offsetof(ms_song_rec_t, id),
 	  sizeof(((ms_song_rec_t *)0)->id), 0, 0, NULL },
-	{ "type", QM_STR, offsetof(ms_song_rec_t, type),
+	{ "type", CM_STR, offsetof(ms_song_rec_t, type),
 	  sizeof(((ms_song_rec_t *)0)->type), 0, 0, NULL },
-	{ "tags", QM_STR, offsetof(ms_song_rec_t, tags),
+	{ "tags", CM_STR, offsetof(ms_song_rec_t, tags),
 	  sizeof(((ms_song_rec_t *)0)->tags), 0, 0, NULL },
 };
 
@@ -1740,12 +1740,12 @@ static void test_prefilter_multi_ref_union_intersect(void)
 	ms_put_type("festa", "Festa");
 
 	/* ms.items must be a RECORD source: prefilter_multi_ref reads field
-	 * values via qmap_field_get, which is record-map-only. */
-	rec = qmap_record_register(
+	 * values via corm_field_get, which is record-map-only. */
+	rec = corm_record_register(
 	        "ms.rec", sizeof(ms_song_rec_t), ms_rec_fields, 3);
-	CHECK(rec != QM_MISS, "ms record layout registered");
+	CHECK(rec != CM_MISS, "ms record layout registered");
 	hyle_registry_register("ms.items", ms_song_fields, 3, rec, 0, NULL);
-	/* Plain-map target: qmap_pos finds no "comunhao" key (plain maps
+	/* Plain-map target: corm_pos finds no "comunhao" key (plain maps
 	 * store "row:field" composite keys), so prefilter_multi_ref falls
 	 * back to the raw slug — the site's shape. song1 tags = "comunhao"
 	 * keeps assertion 3 ({song1,song3}) consistent with the docs. */
@@ -1829,10 +1829,10 @@ typedef struct {
 	char choir[128];
 } ao_book_rec_t;
 
-static const qmap_record_field_t ao_book_rec_fields[2] = {
-	{ "id", QM_STR, offsetof(ao_book_rec_t, id),
+static const corm_record_field_t ao_book_rec_fields[2] = {
+	{ "id", CM_STR, offsetof(ao_book_rec_t, id),
 	  sizeof(((ao_book_rec_t *)0)->id), 0, 0, NULL },
-	{ "choir", QM_STR, offsetof(ao_book_rec_t, choir),
+	{ "choir", CM_STR, offsetof(ao_book_rec_t, choir),
 	  sizeof(((ao_book_rec_t *)0)->choir), 0, 0, NULL },
 };
 
@@ -1902,9 +1902,9 @@ static void test_prefilter_multi_ref_field_default_and(void)
 
 	printf("\n=== prefilter multi-ref: field-default AND ===\n");
 
-	rec = qmap_record_register(
+	rec = corm_record_register(
 	        "ao.rec", sizeof(ms_song_rec_t), ms_rec_fields, 3);
-	CHECK(rec != QM_MISS, "ao record layout registered");
+	CHECK(rec != CM_MISS, "ao record layout registered");
 	hyle_registry_register("ao.items", ao_song_fields, 2, rec, 0, NULL);
 
 	/* Reuse ms.items songs: need to put matching data under ao.items.
@@ -1941,9 +1941,9 @@ static void test_prefilter_ref_multi_value(void)
 
 	printf("\n=== prefilter single-REFERENCE multi-value ===\n");
 
-	rec = qmap_record_register(
+	rec = corm_record_register(
 	        "ao.book_rec", sizeof(ao_book_rec_t), ao_book_rec_fields, 2);
-	CHECK(rec != QM_MISS, "ao.book_rec registered");
+	CHECK(rec != CM_MISS, "ao.book_rec registered");
 	hyle_registry_register("ao.books", ao_book_fields, 2, rec, 0, NULL);
 
 	{
@@ -1965,7 +1965,7 @@ static void test_prefilter_ref_multi_value(void)
 
 	/* AND degenerate: choir can't be both → empty */
 	ao_books_query("choir=comunhao&choir=natal&choir_op=and", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "AND degenerate REFERENCE → empty");
+	CHECK(corm_count(out.row_hd, NULL) == 0, "AND degenerate REFERENCE → empty");
 	hyle_row_set_free(&out);
 
 	/* Single value → residual ci_substr path */
@@ -2044,7 +2044,7 @@ static void test_prefilter_q_labels(void)
 	hyle_row_set_free(&out);
 
 	omni_query("q=coracao", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "q=coracao empty");
+	CHECK(corm_count(out.row_hd, NULL) == 0, "q=coracao empty");
 	hyle_row_set_free(&out);
 
 	omni_query("q=Joaq", &out);
@@ -2072,7 +2072,7 @@ static void test_prefilter_q_labels(void)
 	hyle_row_set_free(&out);
 
 	omni_query("q=xyz", &out);
-	CHECK(qmap_count(out.row_hd, NULL) == 0, "q=xyz empty");
+	CHECK(corm_count(out.row_hd, NULL) == 0, "q=xyz empty");
 	hyle_row_set_free(&out);
 }
 

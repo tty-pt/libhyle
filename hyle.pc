@@ -6,5 +6,5 @@ includedir=${prefix}/include
 Name: libhyle
 Description: Pure data/query kernel (canonical schemas, query, filtering, FTS) plus generic registry/ordered/derive machinery and the C/FFI row API
 Version: 0.2.0
-Libs: -L${libdir} -lhyle -lqmap -lstoma
+Libs: -L${libdir} -lhyle -lcorm -lstoma
 Cflags: -I${includedir}
