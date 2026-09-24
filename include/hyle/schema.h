@@ -1,21 +1,39 @@
 #ifndef HYLE_SCHEMA_H
 #define HYLE_SCHEMA_H
 
+/**
+ * @file schema.h
+ * @brief Canonical, framework-neutral schema descriptors.
+ *
+ * hyle_schema_desc_t is the storage-agnostic field descriptor shared by
+ * hyle and bud; the FIELD_* macros generate them from struct layouts.
+ */
+
 #include <stddef.h>
 #include "field.h"
 
 /* ── Hyle Schema Descriptor Kinds (UI / Serialization Mode) ───── */
-#define HYLE_KIND_RECORD      0 /* standard record field, include in state JSON */
-#define HYLE_KIND_EXCLUDE     1 /* record field, exclude from state JSON */
-#define HYLE_KIND_REF_DISPLAY 2 /* reference field, resolve IDs to display names */
-#define HYLE_KIND_OVERLAY_INT 3 /* computed int overlay */
-#define HYLE_KIND_OVERLAY_STR 4 /* computed string overlay */
-#define HYLE_KIND_INVERSE     5 /* inverse virtual relation */
+/** Standard record field, included in state JSON. */
+#define HYLE_KIND_RECORD      0
+/** Record field, excluded from state JSON. */
+#define HYLE_KIND_EXCLUDE     1
+/** Reference field, resolving IDs to display names. */
+#define HYLE_KIND_REF_DISPLAY 2
+/** Computed integer overlay. */
+#define HYLE_KIND_OVERLAY_INT 3
+/** Computed string overlay. */
+#define HYLE_KIND_OVERLAY_STR 4
+/** Inverse virtual relation. */
+#define HYLE_KIND_INVERSE     5
 
 /* ── Hyle Storage / Corm Types ────────────────────────────────── */
+/** Corm string storage type. */
 #define HYLE_CM_STR           2
+/** Corm single-reference storage type. */
 #define HYLE_CM_REFERENCE     6
+/** Corm multi-reference storage type. */
 #define HYLE_CM_MULTI_REF     7
+/** Corm variable-length string storage type. */
 #define HYLE_CM_VSTR          8
 
 /* Backward compatibility aliases */
@@ -35,46 +53,72 @@
 #endif
 
 /* ── Canonical Hyle Schema Descriptor ─────────────────────────── */
-/* Framework-neutral, pure C data descriptor.
- * Layout contract: first 5 fields match bud_field_desc_t for zero-copy stride casting.
+/**
+ * @brief Framework-neutral, pure-C schema descriptor for one field.
+ *
+ * Layout contract: the first 5 fields match bud_field_desc_t so the two
+ * can be stride-cast with zero copy. The FIELD_* macros below build
+ * these from struct layouts.
  */
 typedef struct hyle_schema_desc {
+	/** Field key (struct member name, JSON name). */
 	const char *key;
+	/** Byte offset of the member in its owning struct (0 if virtual). */
 	size_t offset;
+	/** Byte size of the member (0 if virtual). */
 	size_t size;
+	/** Non-zero when the field stores an integer. */
 	int is_int;
-	int kind;        /* HYLE_KIND_* (first 5 fields mirror bud_field_desc_t) */
-	int is_array;    /* 0 = scalar, 1 = collection / array */
+	/** HYLE_KIND_* serialization/UI mode. */
+	int kind;
+	/** 0 = scalar, 1 = collection/array. */
+	int is_array;
+	/** Corm type id (HYLE_CM_*). */
 	int qm_type;
+	/** Field category (source_type is a legacy alias). */
 	union {
 		hyle_field_type_t type;
-		int source_type; /* backwards compatibility alias */
+		int source_type;
 	};
+	/** Non-zero when the field may be written by clients. */
 	int writable;
+	/** Non-zero when a value is mandatory. */
 	int required;
+	/** Minimum string length (0 = unconstrained). */
 	size_t min_length;
+	/** Source id referenced by reference fields. */
 	const char *ref_source;
+	/** Inverse field name for inverse relations. */
 	const char *ref_inverse;
+	/** Non-zero when the field lives in meta rather than record state. */
 	int in_meta;
+	/** Attached file name, or NULL. */
 	const char *file;
+	/** Display/filter style hint, or NULL. */
 	const char *filter_style;
+	/** Filter matching mode, or NULL. */
 	const char *filter_mode;
+	/** Key selecting a derive provider for derived fields, or NULL. */
 	const char *derive_key;
+	/** Non-zero when new entries may be added through this field. */
 	int allow_add;
 } hyle_schema_desc_t;
 
+/** Alias for hyle_schema_desc_t. */
 typedef struct hyle_schema_desc source_desc_t;
 
 /* ── Member Size and Offset Helpers ───────────────────────────── */
+/** Size in bytes of a struct member (\p mb of type \p st). */
 #ifndef FIELD_SIZE
 #define FIELD_SIZE(st, mb) sizeof(((st *)0)->mb)
 #endif
+/** Byte offset of a struct member (\p mb of type \p st). */
 #ifndef FIELD_OFFSET
 #define FIELD_OFFSET(st, mb) offsetof(st, mb)
 #endif
 
 /* ── Base Field Property Generator Helpers ─────────────────────── */
-
+/** @brief Text-field initializer body used by FIELD_TEXT. */
 #define _FIELD_TEXT(name, st, ...)                                             \
 	.key = #name,                                                          \
 	.offset = offsetof(st, name),                                          \
@@ -86,6 +130,7 @@ typedef struct hyle_schema_desc source_desc_t;
 	.writable = 1,                                                         \
 	##__VA_ARGS__
 
+/** @brief Integer-field initializer body used by FIELD_INT. */
 #define _FIELD_INT(name, st, ...)                                              \
 	.key = #name,                                                          \
 	.offset = offsetof(st, name),                                          \
@@ -96,6 +141,7 @@ typedef struct hyle_schema_desc source_desc_t;
 	.writable = 1,                                                         \
 	##__VA_ARGS__
 
+/** @brief Boolean-field initializer body used by FIELD_BOOL. */
 #define _FIELD_BOOL(name, st, ...)                                             \
 	.key = #name,                                                          \
 	.offset = offsetof(st, name),                                          \
@@ -106,6 +152,7 @@ typedef struct hyle_schema_desc source_desc_t;
 	.writable = 1,                                                         \
 	##__VA_ARGS__
 
+/** @brief Reference-field initializer body used by FIELD_REF. */
 #define _FIELD_REF(name, st, target, ...)                                      \
 	.key = #name,                                                          \
 	.offset = offsetof(st, name),                                          \
@@ -121,23 +168,23 @@ typedef struct hyle_schema_desc source_desc_t;
 
 /* ── Modern Ergonomic Schema Macros ───────────────────────────── */
 
-/* String / Text record field */
+/** @brief String/text record field descriptor. */
 #define FIELD_TEXT(name, st, ...)                                             \
 	{ _FIELD_TEXT(name, st, ##__VA_ARGS__) }
 
-/* Integer record field */
+/** @brief Integer record field descriptor. */
 #define FIELD_INT(name, st, ...)                                              \
 	{ _FIELD_INT(name, st, ##__VA_ARGS__) }
 
-/* Boolean record field */
+/** @brief Boolean record field descriptor. */
 #define FIELD_BOOL(name, st, ...)                                             \
 	{ _FIELD_BOOL(name, st, ##__VA_ARGS__) }
 
-/* Reference to foreign entity with automatic source lookup and display */
+/** @brief Reference descriptor with automatic source lookup and display. */
 #define FIELD_REF(name, st, target, ...)                                      \
 	{ _FIELD_REF(name, st, target, ##__VA_ARGS__) }
 
-/* Attached file (e.g. data.txt, pt_PT.html) */
+/** @brief Attached file descriptor (e.g. data.txt, pt_PT.html). */
 #define FIELD_FILE(name, file_name, ...)                                      \
 	{                                                                      \
 		.key = #name,                                                  \
@@ -152,7 +199,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		##__VA_ARGS__                                                  \
 	}
 
-/* Derived virtual field (in-memory derivation / search fold) */
+/** @brief Derived virtual field (in-memory derivation / search fold). */
 #define FIELD_DERIVED(name, derive_func_key, ...)                             \
 	{                                                                      \
 		.key = #name,                                                  \
@@ -167,7 +214,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		##__VA_ARGS__                                                  \
 	}
 
-/* Inverse virtual relation */
+/** @brief Inverse virtual relation descriptor. */
 #define FIELD_INVERSE(name, target, inv_field, ...)                            \
 	{                                                                      \
 		.key = #name,                                                  \
@@ -183,7 +230,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		##__VA_ARGS__                                                  \
 	}
 
-/* Excluded field (backed by struct member, e.g. owner) */
+/** @brief Excluded field backed by a struct member (e.g. owner). */
 #define FIELD_EXCL(name, st, ...)                                             \
 	{                                                                      \
 		.key = #name,                                                  \
@@ -196,7 +243,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		##__VA_ARGS__                                                  \
 	}
 
-/* Overlay fields (for app state structures) */
+/** @brief Integer overlay field for app state structures. */
 #define OVERLAY_INT(name, st, mb)                                              \
 	{                                                                      \
 		.key = #name,                                                  \
@@ -206,6 +253,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		.kind = HYLE_KIND_OVERLAY_INT                                  \
 	}
 
+/** @brief String overlay field for app state structures. */
 #define OVERLAY_STR(name, st, mb, sz)                                          \
 	{                                                                      \
 		.key = #name,                                                  \
@@ -215,26 +263,31 @@ typedef struct hyle_schema_desc source_desc_t;
 		.kind = HYLE_KIND_OVERLAY_STR                                  \
 	}
 
-/* End marker */
+/** @brief End marker for descriptor arrays (a NULL-key entry). */
 #define FIELD_END { .key = NULL }
 
 /* ── Higher-Order Array Combinator ─────────────────────────────── */
-/* Makes ANY base field type into an array/collection field (.is_array = 1) */
+/** @brief Wraps any base field macro into an array/collection field. */
 #define FIELD_ARRAY(type_macro, ...) type_macro(__VA_ARGS__, .is_array = 1)
 
 /* Direct Array Convenience Aliases */
+/** @brief Array-of-integers convenience alias. */
 #define FIELD_ARRAY_INT(name, st, ...)                                        \
 	FIELD_INT(name, st, .is_array = 1, ##__VA_ARGS__)
+/** @brief Array-of-text convenience alias. */
 #define FIELD_ARRAY_TEXT(name, st, ...)                                       \
 	FIELD_TEXT(name, st, .is_array = 1, ##__VA_ARGS__)
+/** @brief Array-of-bool convenience alias. */
 #define FIELD_ARRAY_BOOL(name, st, ...)                                       \
 	FIELD_BOOL(name, st, .is_array = 1, ##__VA_ARGS__)
+/** @brief Array-of-references convenience alias. */
 #define FIELD_ARRAY_REF(name, st, target, ...)                                \
 	FIELD_REF(name, st, target, .is_array = 1, ##__VA_ARGS__)
+/** @brief Alias of FIELD_ARRAY_REF for multi-reference fields. */
 #define FIELD_MULTI_REF FIELD_ARRAY_REF
 
 /* ── Legacy Positional Field Macros (for backward compatibility) ── */
-
+/** @brief Legacy positional record (string) field. */
 #define REC_FIELD(name, st, mb, sz, wr, rq, ml, im)                            \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_RECORD,             \
@@ -242,6 +295,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, im, NULL, NULL, NULL, NULL, 0                      \
 	}
 
+/** @brief Legacy positional reference field. */
 #define REF_FIELD(name, st, mb, sz, src, inv, im)                              \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -249,6 +303,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		src, inv, im, #name, NULL, NULL, NULL, 0                       \
 	}
 
+/** @brief Legacy positional reference field with filter style. */
 #define REF_FIELD_S(name, st, mb, sz, src, inv, im, style)                     \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -256,6 +311,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		src, inv, im, #name, style, NULL, NULL, 0                      \
 	}
 
+/** @brief Legacy positional reference field with style and add flag. */
 #define REF_FIELD_SA(name, st, mb, sz, src, inv, im, style, add)              \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -263,6 +319,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		src, inv, im, #name, style, NULL, NULL, add                    \
 	}
 
+/** @brief Legacy positional multi-reference field. */
 #define MULTI_REF_FIELD(name, st, mb, sz, src, inv, im)                        \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -270,6 +327,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		1, 0, 0, src, inv, im, #name, NULL, NULL, NULL, 0              \
 	}
 
+/** @brief Legacy positional multi-reference field with style. */
 #define MULTI_REF_FIELD_S(name, st, mb, sz, src, inv, im, style)               \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -277,6 +335,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		1, 0, 0, src, inv, im, #name, style, NULL, NULL, 0             \
 	}
 
+/** @brief Legacy positional multi-reference field with style and mode. */
 #define MULTI_REF_FIELD_SM(name, st, mb, sz, src, inv, im, style, mode)        \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -284,6 +343,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		1, 0, 0, src, inv, im, #name, style, mode, NULL, 0             \
 	}
 
+/** @brief Legacy positional multi-reference field with style, mode and add. */
 #define MULTI_REF_FIELD_SMA(name, st, mb, sz, src, inv, im, style, mode, add)  \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_REF_DISPLAY,         \
@@ -291,6 +351,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		1, 0, 0, src, inv, im, #name, style, mode, NULL, add          \
 	}
 
+/** @brief Legacy positional inverse field. */
 #define INVERSE_FIELD(name, src, inv)                                          \
 	{                                                                      \
 		#name, 0, 0, 0, HYLE_KIND_INVERSE, 0,                          \
@@ -298,6 +359,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		src, inv, 0, NULL, NULL, NULL, NULL, 0                         \
 	}
 
+/** @brief Legacy positional excluded (string) field. */
 #define EXCL_FIELD(name, st, mb, sz, ...)                                      \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_EXCLUDE,             \
@@ -305,6 +367,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, 0, NULL, NULL, NULL, NULL, 0                       \
 	}
 
+/** @brief Legacy positional excluded field with meta flag. */
 #define EXCL_FIELD_M(name, st, mb, sz, im)                                     \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_EXCLUDE,             \
@@ -312,6 +375,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, im, NULL, NULL, NULL, NULL, 0                      \
 	}
 
+/** @brief Legacy positional excluded field with corm type and meta flag. */
 #define EXCL_FIELD_W(name, st, mb, sz, qt, im)                                 \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_EXCLUDE, qt,          \
@@ -319,6 +383,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, NULL, NULL, 0                                      \
 	}
 
+/** @brief Legacy virtual excluded (string) field. */
 #define EXCL_FIELD_V(name, qt, wr, im)                                         \
 	{                                                                      \
 		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, qt,                         \
@@ -326,6 +391,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, im, NULL, NULL, NULL, NULL, 0                      \
 	}
 
+/** @brief Legacy virtual excluded field with file name. */
 #define EXCL_FIELD_VF(name, qt, wr, im, fl)                                    \
 	{                                                                      \
 		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, qt,                         \
@@ -333,6 +399,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, im, fl, NULL, NULL, NULL, 0                        \
 	}
 
+/** @brief Legacy positional derived field. */
 #define DERIVED_FIELD(name, dkey)                                              \
 	{                                                                      \
 		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, HYLE_CM_STR,                \
@@ -340,6 +407,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, dkey, 0                                            \
 	}
 
+/** @brief Legacy positional integer field. */
 #define INT_FIELD(name, st, mb, wr)                                            \
 	{                                                                      \
 		#name, offsetof(st, mb), sizeof(int), 1, HYLE_KIND_RECORD,     \
@@ -347,6 +415,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, NULL, NULL, 0                                      \
 	}
 
+/** @brief Legacy positional boolean field. */
 #define BOOL_FIELD(name, st, mb, wr)                                           \
 	{                                                                      \
 		#name, offsetof(st, mb), sizeof(int), 0, HYLE_KIND_RECORD,     \
@@ -354,6 +423,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, NULL, NULL, 0                                      \
 	}
 
+/** @brief Legacy positional required (string) field. */
 #define REQ_FIELD(name, st, mb, sz)                                            \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_RECORD,              \
@@ -361,6 +431,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, 0, NULL, NULL, NULL, NULL, 0                       \
 	}
 
+/** @brief Legacy positional required field with minimum length. */
 #define REQ_FIELD_MIN(name, st, mb, sz, ml)                                    \
 	{                                                                      \
 		#name, offsetof(st, mb), sz, 0, HYLE_KIND_RECORD,              \
@@ -368,6 +439,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		NULL, NULL, 0, NULL, NULL, NULL, NULL, 0                       \
 	}
 
+/** @brief Legacy variable-length string (file) field. */
 #define VSTR_FIELD(name, fl)                                                   \
 	{                                                                      \
 		#name, 0, 0, 0, HYLE_KIND_EXCLUDE, HYLE_CM_VSTR,               \
@@ -375,6 +447,7 @@ typedef struct hyle_schema_desc source_desc_t;
 		fl, NULL, NULL, NULL, 0                                        \
 	}
 
+/** @brief Alias of VSTR_FIELD for attached files. */
 #define FILE_FIELD(name, file_name) VSTR_FIELD(name, file_name)
 
 #endif
