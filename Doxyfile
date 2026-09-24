@@ -1,0 +1,3 @@
+PROJECT_NAME           = "libhyle"
+@INCLUDE = ../mk/Doxyfile
+INPUT                  = include/hyle/

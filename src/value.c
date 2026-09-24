@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "hyle/value.h"
-#include <ttypt/qmap.h>
+#include <ttypt/corm.h>
 
 /* ---- String helpers ---- */
 
@@ -43,7 +43,7 @@ hyle_val_t hyle_val_float(double f)
 hyle_val_t hyle_val_string(hyle_ctx_t *ctx, const char *s)
 {
 	uint32_t id = ctx->next_id++;
-	qmap_put(ctx->string_pool, &id, s);
+	corm_put(ctx->string_pool, &id, s);
 	return (hyle_val_t){ .type = HYLE_STRING, .hd = id };
 }
 
@@ -65,7 +65,7 @@ const char *hyle_val_string_get(hyle_ctx_t *ctx, hyle_val_t v)
 {
 	if (v.type != HYLE_STRING)
 		return NULL;
-	return (const char *)qmap_get(ctx->string_pool, &v.hd);
+	return (const char *)corm_get(ctx->string_pool, &v.hd);
 }
 
 /* ---- Array operations ---- */
@@ -77,7 +77,7 @@ void hyle_val_array_push(hyle_ctx_t *ctx, hyle_val_t arr, hyle_val_t elem)
 		return;
 	char key[32];
 	id_key(key, sizeof(key), arr.hd);
-	qmap_put(ctx->array_pool, key, json);
+	corm_put(ctx->array_pool, key, json);
 	free(json);
 }
 
@@ -86,21 +86,21 @@ hyle_val_t hyle_val_array_get(hyle_ctx_t *ctx, hyle_val_t arr, size_t idx)
 	char key[32];
 	id_key(key, sizeof(key), arr.hd);
 
-	uint32_t cur = qmap_get_multi(ctx->array_pool, key);
-	if (cur == QM_MISS)
+	uint32_t cur = corm_get_multi(ctx->array_pool, key);
+	if (cur == CM_MISS)
 		return hyle_val_null();
 
 	const void *k, *val;
 	size_t i = 0;
-	while (qmap_next(&k, &val, cur)) {
+	while (corm_next(&k, &val, cur)) {
 		if (i == idx) {
 			const char *s = (const char *)val;
-			qmap_fin(cur);
+			corm_fin(cur);
 			return hyle_val_string(ctx, s);
 		}
 		i++;
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 	return hyle_val_null();
 }
 
@@ -108,7 +108,7 @@ size_t hyle_val_array_len(hyle_ctx_t *ctx, hyle_val_t arr)
 {
 	char key[32];
 	id_key(key, sizeof(key), arr.hd);
-	return qmap_count(ctx->array_pool, key);
+	return corm_count(ctx->array_pool, key);
 }
 
 /* ---- Map operations ---- */
@@ -121,7 +121,7 @@ void hyle_val_map_set(hyle_ctx_t *ctx, hyle_val_t map,
 		return;
 	char key[256];
 	map_key(key, sizeof(key), map.hd, field);
-	qmap_put(ctx->map_pool, key, json);
+	corm_put(ctx->map_pool, key, json);
 	free(json);
 }
 
@@ -130,7 +130,7 @@ hyle_val_t hyle_val_map_get(hyle_ctx_t *ctx, hyle_val_t map,
 {
 	char key[256];
 	map_key(key, sizeof(key), map.hd, field);
-	const char *val = (const char *)qmap_get(ctx->map_pool, key);
+	const char *val = (const char *)corm_get(ctx->map_pool, key);
 	if (!val)
 		return hyle_val_null();
 	return hyle_val_string(ctx, val);
@@ -203,24 +203,24 @@ char *hyle_val_to_json(hyle_ctx_t *ctx, hyle_val_t v)
 		char key[32];
 		id_key(key, sizeof(key), v.hd);
 
-		uint32_t cur = qmap_get_multi(ctx->array_pool, key);
-		if (cur == QM_MISS)
+		uint32_t cur = corm_get_multi(ctx->array_pool, key);
+		if (cur == CM_MISS)
 			return strdup("[]");
 
 		size_t cap = 256;
 		size_t len = 0;
 		char *json = (char *)malloc(cap);
-		if (!json) { qmap_fin(cur); return NULL; }
+		if (!json) { corm_fin(cur); return NULL; }
 		json[len++] = '[';
 
 		const void *k, *val;
 		int first = 1;
-		while (qmap_next(&k, &val, cur)) {
+		while (corm_next(&k, &val, cur)) {
 			if (!first) {
 				if (len + 1 >= cap) {
 					cap *= 2;
 					char *tmp = (char *)realloc(json, cap);
-					if (!tmp) { free(json); qmap_fin(cur); return NULL; }
+					if (!tmp) { free(json); corm_fin(cur); return NULL; }
 					json = tmp;
 				}
 				json[len++] = ',';
@@ -231,13 +231,13 @@ char *hyle_val_to_json(hyle_ctx_t *ctx, hyle_val_t v)
 			while (len + elen + 1 >= cap) {
 				cap *= 2;
 				char *tmp = (char *)realloc(json, cap);
-				if (!tmp) { free(json); qmap_fin(cur); return NULL; }
+				if (!tmp) { free(json); corm_fin(cur); return NULL; }
 				json = tmp;
 			}
 			memcpy(json + len, elem, elen);
 			len += elen;
 		}
-		qmap_fin(cur);
+		corm_fin(cur);
 		json[len++] = ']';
 		json[len] = '\0';
 		return json;
@@ -251,14 +251,14 @@ char *hyle_val_to_json(hyle_ctx_t *ctx, hyle_val_t v)
 		json[len++] = '{';
 
 		int first = 1;
-		uint32_t cur = qmap_iter(ctx->map_pool, NULL, 0);
+		uint32_t cur = corm_iter(ctx->map_pool, NULL, 0);
 
 		const void *k, *vval;
 		char prefix[32];
 		snprintf(prefix, sizeof(prefix), "%u.", v.hd);
 		size_t plen = strlen(prefix);
 
-		while (qmap_next(&k, &vval, cur)) {
+		while (corm_next(&k, &vval, cur)) {
 			const char *key = (const char *)k;
 			if (strncmp(key, prefix, plen) != 0)
 				continue;
@@ -267,7 +267,7 @@ char *hyle_val_to_json(hyle_ctx_t *ctx, hyle_val_t v)
 				if (len + 1 >= cap) {
 					cap *= 2;
 					char *tmp = (char *)realloc(json, cap);
-					if (!tmp) { free(json); qmap_fin(cur); return NULL; }
+					if (!tmp) { free(json); corm_fin(cur); return NULL; }
 					json = tmp;
 				}
 				json[len++] = ',';
@@ -283,7 +283,7 @@ char *hyle_val_to_json(hyle_ctx_t *ctx, hyle_val_t v)
 			while (len + need + 1 >= cap) {
 				cap *= 2;
 				char *tmp = (char *)realloc(json, cap);
-				if (!tmp) { free(esc_field); qmap_fin(cur); free(json); return NULL; }
+				if (!tmp) { free(esc_field); corm_fin(cur); free(json); return NULL; }
 				json = tmp;
 			}
 			memcpy(json + len, esc_field, flen);
@@ -293,7 +293,7 @@ char *hyle_val_to_json(hyle_ctx_t *ctx, hyle_val_t v)
 			len += vlen;
 			free(esc_field);
 		}
-		qmap_fin(cur);
+		corm_fin(cur);
 		json[len++] = '}';
 		json[len] = '\0';
 		return json;

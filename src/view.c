@@ -8,7 +8,7 @@
 #include <stoma/stoma.h>
 #include "hyle/query.h"
 #include "hyle/field.h"
-#include <ttypt/qmap.h>
+#include <ttypt/corm.h>
 
 /* ---- helpers ---- */
 
@@ -24,7 +24,7 @@ static const char *row_field_val(const hyle_row_set_t *rows,
 	key[id_len] = ':';
 	memcpy(key + id_len + 1, field, field_len);
 	key[id_len + 1 + field_len] = '\0';
-	return (const char *)qmap_get(rows->fields_hd, key);
+	return (const char *)corm_get(rows->fields_hd, key);
 }
 
 static int ci_substr_raw(const char *str, const char *sub)
@@ -316,11 +316,11 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 			has_q = 0;
 	}
 
-	uint32_t cur = qmap_iter(input->row_hd, NULL, 0);
+	uint32_t cur = corm_iter(input->row_hd, NULL, 0);
 	const void *k;
 	const void *v;
 
-	while (qmap_next(&k, &v, cur)) {
+	while (corm_next(&k, &v, cur)) {
 		const char *row_id = (const char *)k;
 
 		int match = 1;
@@ -367,11 +367,11 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 					prefix[id_len + 1] = '\0';
 					size_t plen = id_len + 1;
 
-					uint32_t fc = qmap_iter(
+					uint32_t fc = corm_iter(
 						input->fields_hd, NULL, 0);
 					const void *fk;
 					const void *fv2;
-					while (qmap_next(&fk, &fv2, fc)) {
+					while (corm_next(&fk, &fv2, fc)) {
 						const char *key = (const char *)fk;
 						if (strncmp(key, prefix, plen) != 0)
 							continue;
@@ -381,16 +381,16 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 							break;
 						}
 					}
-					qmap_fin(fc);
+					corm_fin(fc);
 				}
 			}
 			if (!found)
 				continue;
 		}
 
-		qmap_put(output->row_hd, row_id, "");
+		corm_put(output->row_hd, row_id, "");
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 }
 
 /* ---- hyle_sort_rows ---- */
@@ -435,17 +435,17 @@ void hyle_sort_rows(hyle_ctx_t *ctx,
 	output->fields_hd = input->fields_hd;
 
 	if (!sort_field) {
-		uint32_t cur = qmap_iter(input->row_hd, NULL, 0);
+		uint32_t cur = corm_iter(input->row_hd, NULL, 0);
 		const void *k;
 		const void *v;
-		while (qmap_next(&k, &v, cur)) {
-			qmap_put(output->row_hd, (const char *)k, "");
+		while (corm_next(&k, &v, cur)) {
+			corm_put(output->row_hd, (const char *)k, "");
 		}
-		qmap_fin(cur);
+		corm_fin(cur);
 		return;
 	}
 
-	uint32_t count = qmap_count(input->row_hd, NULL);
+	uint32_t count = corm_count(input->row_hd, NULL);
 	if (count == 0)
 		return;
 
@@ -455,12 +455,12 @@ void hyle_sort_rows(hyle_ctx_t *ctx,
 		return;
 
 	uint32_t n = 0;
-	uint32_t cur = qmap_iter(input->row_hd, NULL, 0);
+	uint32_t cur = corm_iter(input->row_hd, NULL, 0);
 	const void *k;
 	const void *v;
 	int all_num = 1;
 
-	while (qmap_next(&k, &v, cur)) {
+	while (corm_next(&k, &v, cur)) {
 		entries[n].id = (const char *)k;
 		entries[n].str_val = row_field_val(input,
 			entries[n].id, sort_field);
@@ -478,7 +478,7 @@ void hyle_sort_rows(hyle_ctx_t *ctx,
 		}
 		n++;
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 
 	if (!all_num) {
 		for (uint32_t i = 0; i < n; i++)
@@ -489,7 +489,7 @@ void hyle_sort_rows(hyle_ctx_t *ctx,
 		sort_asc ? sort_cmp_asc : sort_cmp_desc);
 
 	for (uint32_t i = 0; i < n; i++)
-		qmap_put(output->row_hd, entries[i].id, "");
+		corm_put(output->row_hd, entries[i].id, "");
 
 	free(entries);
 }
@@ -506,18 +506,18 @@ void hyle_paginate(hyle_ctx_t *ctx,
 	(void)ctx;
 	output->fields_hd = input->fields_hd;
 
-	uint32_t total = qmap_count(input->row_hd, NULL);
+	uint32_t total = corm_count(input->row_hd, NULL);
 	if (total_out)
 		*total_out = total;
 
 	if (page == 0 || per_page == 0) {
-		uint32_t cur = qmap_iter(input->row_hd, NULL, 0);
+		uint32_t cur = corm_iter(input->row_hd, NULL, 0);
 		const void *k;
 		const void *v;
-		while (qmap_next(&k, &v, cur)) {
-			qmap_put(output->row_hd, (const char *)k, "");
+		while (corm_next(&k, &v, cur)) {
+			corm_put(output->row_hd, (const char *)k, "");
 		}
-		qmap_fin(cur);
+		corm_fin(cur);
 		return;
 	}
 
@@ -530,36 +530,36 @@ void hyle_paginate(hyle_ctx_t *ctx,
 
 	uint32_t pos = 0;
 	uint32_t emitted = 0;
-	uint32_t cur = qmap_iter(input->row_hd, NULL, 0);
+	uint32_t cur = corm_iter(input->row_hd, NULL, 0);
 	const void *k;
 	const void *v;
 
-	while (qmap_next(&k, &v, cur) && emitted < take) {
+	while (corm_next(&k, &v, cur) && emitted < take) {
 		if (pos >= skip) {
-			qmap_put(output->row_hd, (const char *)k, "");
+			corm_put(output->row_hd, (const char *)k, "");
 			emitted++;
 		}
 		pos++;
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 }
 
 /* ---- hyle_apply_view ---- */
 
 static unsigned open_row_hd(void)
 {
-	return qmap_open(NULL, NULL, QM_STR, QM_STR, 0xFF, 0);
+	return corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
 }
 
 static void copy_row_hd(unsigned dst, unsigned src)
 {
-	uint32_t cur = qmap_iter(src, NULL, 0);
+	uint32_t cur = corm_iter(src, NULL, 0);
 	const void *k;
 	const void *v;
-	while (qmap_next(&k, &v, cur)) {
-		qmap_put(dst, (const char *)k, "");
+	while (corm_next(&k, &v, cur)) {
+		corm_put(dst, (const char *)k, "");
 	}
-	qmap_fin(cur);
+	corm_fin(cur);
 }
 
 void hyle_apply_view(hyle_ctx_t *ctx,
@@ -600,7 +600,7 @@ void hyle_apply_view(hyle_ctx_t *ctx,
 		sorted = filtered;
 	}
 
-	uint32_t total = qmap_count(sorted.row_hd, NULL);
+	uint32_t total = corm_count(sorted.row_hd, NULL);
 	if (total_out)
 		*total_out = total;
 
@@ -621,7 +621,7 @@ void hyle_apply_view(hyle_ctx_t *ctx,
 	}
 
 	if (close_sorted && sorted_hd)
-		qmap_close(sorted_hd);
+		corm_close(sorted_hd);
 	if (close_filtered && filtered_hd)
-		qmap_close(filtered_hd);
+		corm_close(filtered_hd);
 }

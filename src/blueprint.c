@@ -24,7 +24,7 @@ int hyle_blueprint_manifest(
 	if (!bp || !source_id || !query)
 		return -1;
 
-	const hyle_source_schema_t *schema = NULL;
+	const hyle_blueprint_schema_t *schema = NULL;
 	for (size_t i = 0; i < bp->source_count; i++) {
 		if (strcmp(bp->sources[i].id, source_id) == 0) {
 			schema = &bp->sources[i];
