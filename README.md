@@ -1,21 +1,22 @@
-# hyle
+# libhyle
 
 [![C99](https://img.shields.io/badge/C-C99-555?logo=c)](#)
 [![BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue)](#)
 [![No UI / transport deps](https://img.shields.io/badge/UI%2Ftransport-none-brightgreen)](#)
+
+> Pure C data / query kernel.
 
 A pure C data/query kernel. Define your data models once as a schema, then get
 query, filter, sort, paginate, full-text search, ordered positional arrays,
 derived fields, and row validation — with no UI, no network, and no framework
 in the picture. Whatever renders the data is your business.
 
----
-
 ## Contents
 
 - [Features](#features)
 - [Neutral by design](#neutral-by-design)
-- [Build & install](#build--install)
+- [Install](#install)
+- [Build from source](#build-from-source)
 - [Quickstart](#quickstart)
 - [API overview](#api-overview)
 - [Query & filtering](#query--filtering)
@@ -59,15 +60,22 @@ library. It knows data, not widgets.
 `stoma` tokenization/search (FTS). On Windows, the POSIX regex wrapper pulls in
 `libpcre2-posix` / `libpcre2-8`. Nothing else.
 
-## Build & install
+## Install
 
-The library builds with a plain `make` (repo's shared `mk/include.mk`):
+Prebuilt packages are distributed on tty.pt for Linux (APT / Alpine / Arch /
+Fedora-RHEL), macOS (Homebrew), Windows (winget / MSYS2), and OpenBSD.
+Follow the [installation instructions](
+https://github.com/tty-pt/ci/blob/main/docs/install.md) and use
+**libhyle** as the package name.
+
+## Build from source
+
+The library builds with a plain `make` (the shared [`mk` include.mk](
+https://github.com/tty-pt/mk)):
 
 ```sh
-cd external/libhyle
 make          # lib/libhyle.so, lib/libhyle.a (Rust-FFI static), bin/hyle_test
 make test     # self-test suite (hyle_test) + Zig bindings test (needs zig)
-
 sudo make install   # lib, headers, and hyle.pc → $(PREFIX), default /usr/local
 ```
 
@@ -178,10 +186,13 @@ string (the string is tokenized in place; clear it with `hyle_query_clear`).
 
 ## Documentation
 
-- `../../docs/ARCHITECTURE.md` — where the kernel sits in the module graph
-- `../../docs/SCHEMA.md` — how schema hint strings (filters, pickers) attach
-- `../../docs/FILTERS.md` — the query/filter contract shared by consumers
-- `docs/PUBLISH.md` — release/install notes for this library
+- [ARCHITECTURE.md](https://github.com/tty-pt/site/blob/main/docs/ARCHITECTURE.md)
+  — where the kernel sits in the module graph
+- [SCHEMA.md](https://github.com/tty-pt/site/blob/main/docs/SCHEMA.md) — how
+  schema hint strings (filters, pickers) attach
+- [FILTERS.md](https://github.com/tty-pt/site/blob/main/docs/FILTERS.md) — the
+  query/filter contract shared by consumers
+- [PUBLISH.md](./docs/PUBLISH.md) — release/install notes for this library
 
 ## Testing
 
@@ -196,4 +207,4 @@ From the repository root, `make boundary-check` runs the module-layer gates and
 
 ## License
 
-BSD 2-Clause License. Copyright (c) 2026, tty-pt. See `../../LICENSE`.
+BSD 2-Clause License. Copyright (c) 2026, tty-pt. See `LICENSE`.
