@@ -1,10 +1,15 @@
+<p align="center">
+  <img src="assets/logo.png" alt="hyle logo" width="220" />
+</p>
+
 # libhyle
 
 [![C99](https://img.shields.io/badge/C-C99-555?logo=c)](#)
 [![BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue)](#)
 [![No UI / transport deps](https://img.shields.io/badge/UI%2Ftransport-none-brightgreen)](#)
+[![Data Kernel](https://img.shields.io/badge/kernel-data%20%2B%20query-16A34A)](#)
 
-> Pure C data / query kernel.
+> Pure C schema-driven data and query kernel with full-text search, filtering, and validation.
 
 A pure C data/query kernel. Define your data models once as a schema, then get
 query, filter, sort, paginate, full-text search, ordered positional arrays,
