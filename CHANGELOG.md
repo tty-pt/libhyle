@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.4.0
+
+- **Lemma Full-Text Search Integration**: Updated dataset registry and search query pipelines to consume `liblemma` instead of `libstoma`.
+- **Corm 2.0 Compatibility**: Verified full compatibility with modernized Corm hashtable and record schema primitives.
+- **Documentation & Visual Assets**: Updated README and added project branding assets.
+
 ## 1.3.0
 
 - `libqmap` → `libcorm` rename throughout (denotes the hashtable layer under the schema registry and query pipeline).

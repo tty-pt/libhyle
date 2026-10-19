@@ -5,7 +5,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <unistd.h>
-#include <stoma/stoma.h>
+#include <ttypt/lemma.h>
 #include "hyle/query.h"
 #include "hyle/field.h"
 #include <ttypt/corm.h>
@@ -60,7 +60,7 @@ static int ci_substr_folded(const char *str, const char *fsub, size_t nlen, cons
 	if (!str)
 		return 0;
 
-	if (stoma_fold(fstr, sizeof(fstr), str) < 0)
+	if (lemma_fold(fstr, sizeof(fstr), str) < 0)
 		return raw_sub ? ci_substr_raw(str, raw_sub) : 0;
 
 	slen = strlen(fstr);
@@ -92,8 +92,8 @@ static int ci_substr(const char *str, const char *sub)
 	if (!str)
 		return 0;
 
-	if (stoma_fold(fsub, sizeof(fsub), sub) < 0 ||
-	    stoma_fold(fstr, sizeof(fstr), str) < 0)
+	if (lemma_fold(fsub, sizeof(fsub), sub) < 0 ||
+	    lemma_fold(fstr, sizeof(fstr), str) < 0)
 		return ci_substr_raw(str, sub);
 
 	slen = strlen(fstr);
@@ -165,7 +165,7 @@ static int ci_substr_punct_folded(const char *str, const char *fsub, size_t nlen
 
 	punct_normalize(fstr, sizeof(fstr), str);
 
-	if (stoma_fold(fstr, sizeof(fstr), fstr) < 0)
+	if (lemma_fold(fstr, sizeof(fstr), fstr) < 0)
 		return 0;
 
 	slen = strlen(fstr);
@@ -198,8 +198,8 @@ static int ci_substr_punct(const char *str, const char *sub)
 	punct_normalize(fsub, sizeof(fsub), sub);
 	punct_normalize(fstr, sizeof(fstr), str);
 
-	if (stoma_fold(fsub, sizeof(fsub), fsub) < 0 ||
-	    stoma_fold(fstr, sizeof(fstr), fstr) < 0)
+	if (lemma_fold(fsub, sizeof(fsub), fsub) < 0 ||
+	    lemma_fold(fstr, sizeof(fstr), fstr) < 0)
 		return 0;
 
 	slen = strlen(fstr);
@@ -293,7 +293,7 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 		pre_filters[i].raw_value = filters[i].value;
 		pre_filters[i].is_multi = is_multi_ref(fields, field_count, filters[i].field);
 		if (!pre_filters[i].is_multi && filters[i].value && *filters[i].value) {
-			if (stoma_fold(pre_filters[i].folded, sizeof(pre_filters[i].folded), filters[i].value) >= 0) {
+			if (lemma_fold(pre_filters[i].folded, sizeof(pre_filters[i].folded), filters[i].value) >= 0) {
 				pre_filters[i].folded_len = strlen(pre_filters[i].folded);
 			} else {
 				pre_filters[i].folded[0] = '\0';
@@ -310,7 +310,7 @@ void hyle_filter_rows(hyle_ctx_t *ctx,
 	int has_q = (q && *q);
 	if (has_q) {
 		punct_normalize(fq, sizeof(fq), q);
-		if (stoma_fold(fq, sizeof(fq), fq) >= 0)
+		if (lemma_fold(fq, sizeof(fq), fq) >= 0)
 			fq_len = strlen(fq);
 		else
 			has_q = 0;

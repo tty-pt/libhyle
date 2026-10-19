@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <ttypt/corm.h>
-#include <stoma/stoma.h>
+#include <ttypt/lemma.h>
 #include "hyle/registry.h"
 #include "hyle/query.h"
 #include "hyle/ctx.h"
@@ -29,8 +29,8 @@ typedef struct {
 	void *persist_user;
 	unsigned order_hd;  /* corm: pval → count (str) */
 	unsigned loaded_hd; /* corm: pval → "" (loaded flag) */
-	stoma_db_t *stoma;  /* full-text index, NULL if no searchable field */
-	int stoma_dirty;
+	lemma_db_t *lemma;  /* full-text index, NULL if no searchable field */
+	int lemma_dirty;
 } registry_entry_t;
 
 static registry_entry_t registry[HYLE_REGISTRY_MAX];
@@ -155,17 +155,17 @@ unsigned hyle_registry_register(
 	e->user = user;
 
 	/* Full-text index: one per source, only when a field opts in. */
-	if (e->stoma) {
-		stoma_close(e->stoma);
-		e->stoma = NULL;
+	if (e->lemma) {
+		lemma_close(e->lemma);
+		e->lemma = NULL;
 	}
 	for (i = 0; i < field_count; i++) {
 		if (fields[i].searchable) {
-			e->stoma = stoma_open(0);
+			e->lemma = lemma_open(0);
 			break;
 		}
 	}
-	e->stoma_dirty = 1;
+	e->lemma_dirty = 1;
 
 	return flds_hd;
 }
@@ -204,8 +204,8 @@ int hyle_registry_put(
 			corm_put(e->fields_hd, key, values[i] ? values[i] : "");
 		}
 	}
-	if (e->stoma)
-		e->stoma_dirty = 1;
+	if (e->lemma)
+		e->lemma_dirty = 1;
 	return 0;
 }
 
@@ -222,8 +222,8 @@ void hyle_registry_del(const char *source_id, const char *row_id)
 		return;
 	corm_del(e->row_hd, row_id);
 	corm_del(e->fields_hd, row_id);
-	if (e->stoma)
-		e->stoma_dirty = 1;
+	if (e->lemma)
+		e->lemma_dirty = 1;
 }
 
 /* ---- hyle_row_set_free ---- */
@@ -603,9 +603,9 @@ static unsigned prefilter_multi_ref(
 
 /* ---- full-text pre-filter --------------------------------------------- */
 /*
- * For searchable fields, resolve each filter against the stoma index and
+ * For searchable fields, resolve each filter against the lemma index and
  * intersect the matching row sets, so apply_view only sees rows that match.
- * Rebuilds the index lazily (stoma_clear + re-index) the first time a
+ * Rebuilds the index lazily (lemma_clear + re-index) the first time a
  * searchable filter arrives after any mutation.
  *
  * Returns a newly-opened candidate row_hd (caller must close), or 0 if no
@@ -619,7 +619,7 @@ static unsigned prefilter_fts(
 	unsigned fi;
 	unsigned fts_hd = 0;
 
-	if (!e->stoma)
+	if (!e->lemma)
 		return 0;
 
 	/* Any searchable filter present? Rebuild the index if stale. */
@@ -639,12 +639,12 @@ static unsigned prefilter_fts(
 	if (fi >= filter_count)
 		return 0;
 
-	if (e->stoma_dirty) {
+	if (e->lemma_dirty) {
 		uint32_t cur;
 		const void *k;
 		const void *v;
 
-		stoma_clear(e->stoma);
+		lemma_clear(e->lemma);
 		cur = corm_iter(e->row_hd, NULL, 0);
 		while (corm_next(&k, &v, cur)) {
 			const char *rid = (const char *)k;
@@ -669,14 +669,14 @@ static unsigned prefilter_fts(
 					fv = corm_get(e->fields_hd, key);
 				}
 				if (fv && *fv) {
-					stoma_index(
-					        e->stoma, fname,
+					lemma_index(
+					        e->lemma, fname,
 					        rid, fv);
 				}
 			}
 		}
 		corm_fin(cur);
-		e->stoma_dirty = 0;
+		e->lemma_dirty = 0;
 	}
 
 	for (fi = 0; fi < filter_count; fi++) {
@@ -720,8 +720,8 @@ static unsigned prefilter_fts(
 				memcpy(inner, value + 1, vlen - 2);
 				inner[vlen - 2] = '\0';
 				if (inner[0])
-					stoma_query_phrase(
-					        e->stoma, fname, inner, tmp_hd,
+					lemma_query_phrase(
+					        e->lemma, fname, inner, tmp_hd,
 					        &handled);
 				else
 					handled = 0;
@@ -730,7 +730,7 @@ static unsigned prefilter_fts(
 				handled = 0;
 			}
 		} else {
-			stoma_query(e->stoma, fname, value, tmp_hd, &handled);
+			lemma_query(e->lemma, fname, value, tmp_hd, &handled);
 		}
 		if (!handled) {
 			corm_close(tmp_hd);
@@ -1251,8 +1251,8 @@ ordered_move_key(registry_entry_t *e, const char *pval, int from, int to)
 	corm_put(e->row_hd, new_key, "");
 	corm_del(e->row_hd, old_key);
 	corm_del(e->fields_hd, old_key);
-	if (e->stoma)
-		e->stoma_dirty = 1;
+	if (e->lemma)
+		e->lemma_dirty = 1;
 }
 
 static int ordered_ensure_loaded(const char *source_id, const char *pval)
