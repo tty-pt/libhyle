@@ -1477,7 +1477,7 @@ static void test_purify_null_params(void)
 }
 
 /* ================================================================
- * Phase 6 — full-text index (stoma) via hyle_registry_query
+ * Phase 6 — full-text index (lemma) via hyle_registry_query
  * ================================================================ */
 
 static const hyle_field_t fts_fields[] = {
@@ -1518,7 +1518,7 @@ static void test_fts(void)
 {
 	hyle_row_set_t out;
 
-	printf("\n=== full-text index (stoma) ===\n");
+	printf("\n=== full-text index (lemma) ===\n");
 	hyle_registry_register("fts.test", fts_fields, 3, 0, 0, NULL);
 
 	fts_put_row("song1", "Starlight of the night", "Alice Smith", "2020");

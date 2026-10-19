@@ -15,23 +15,23 @@ fn main() {
 
         let hyle_lib  = repo_root.join("lib");
         let corm_lib  = repo_root.join("../libcorm/lib");
-        let stoma_lib = repo_root.join("../libstoma/lib");
+        let lemma_lib = repo_root.join("../liblemma/lib");
         let qsys_lib  = repo_root.join("../libqsys/lib");
 
         println!("cargo:rustc-link-search=native={}", hyle_lib.display());
         println!("cargo:rustc-link-search=native={}", corm_lib.display());
-        println!("cargo:rustc-link-search=native={}", stoma_lib.display());
+        println!("cargo:rustc-link-search=native={}", lemma_lib.display());
         println!("cargo:rustc-link-search=native={}", qsys_lib.display());
 
         // Link C libhyle statically to avoid naming collision with the Rust cdylib
         // (which is also called libhyle.so and is placed in target/debug/deps/).
         println!("cargo:rustc-link-lib=static=hyle");
         println!("cargo:rustc-link-lib=dylib=corm");
-        println!("cargo:rustc-link-lib=dylib=stoma");
+        println!("cargo:rustc-link-lib=dylib=lemma");
         println!("cargo:rustc-link-lib=dylib=qsys");
 
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", corm_lib.display());
-        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", stoma_lib.display());
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lemma_lib.display());
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", qsys_lib.display());
     }
 }

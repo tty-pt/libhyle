@@ -90,7 +90,7 @@ int hyle_parse_query(char *query_str, hyle_query_t *out);
  */
 void hyle_query_clear(hyle_query_t *q);
 
-/* Case-insensitive, accent-sensitive substring match (stoma_fold). */
+/* Case-insensitive, accent-sensitive substring match (lemma_fold). */
 /**
  * @brief Case-insensitive, accent-sensitive substring match.
  *

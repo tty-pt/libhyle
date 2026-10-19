@@ -17,7 +17,7 @@
 
 `libhyle` connects low-level hash maps and tokenizers to high-level application schemas:
 - **Storage Engine**: Built on [libcorm](https://github.com/tty-pt/libcorm) for opaque fast row and field hash stores.
-- **Search Tokenizer**: Uses [libstoma](https://github.com/tty-pt/libstoma) for accent-preserving full-text substring and phrase search.
+- **Search Tokenizer**: Uses [liblemma](https://github.com/tty-pt/liblemma) for accent-preserving full-text substring and phrase search.
 - **UI Bridge**: Bridges directly to [libbud](https://github.com/tty-pt/libbud) via `libhyle-bud` to bind schema fields to isomorphic DOM tables and filters.
 
 ---
@@ -83,7 +83,7 @@ cc catalog_demo.c $(pkg-config --cflags --libs hyle)
 ## Design Philosophy: Neutral by Design
 
 * **Zero UI or Network Coupling**: `libhyle.so` contains zero bud or HTTP symbols. It manages pure data and schemas, letting any transport or renderer handle presentation.
-* **Accent-Sensitive Correctness**: Search powered by [libstoma](https://github.com/tty-pt/libstoma) guarantees `pão ≠ pao` while keeping queries fast and predictable.
+* **Accent-Sensitive Correctness**: Search powered by [liblemma](https://github.com/tty-pt/liblemma) guarantees `pão ≠ pao` while keeping queries fast and predictable.
 * **Multi-Language Bindings**: First-class FFI row formats support Rust (`crates/hyle/`) and Zig (`zig-bindings/`) mirrors without memory copies.
 
 ---

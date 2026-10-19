@@ -4,9 +4,11 @@ all := libhyle hyle_test
 share := assets/hyle.css
 share-dir := hyle
 
-LDLIBS-libhyle := -lstoma -lcorm
+LDLIBS-libhyle := -llemma -lcorm
 libhyle-obj-y := src/ctx.o src/value.o src/query.o src/view.o src/field.o src/blueprint.o src/purify.o src/registry.o src/url.o
-LDLIBS-hyle_test := -lhyle -lstoma -lcorm
+LDLIBS-hyle_test := -lhyle -llemma -lcorm
+
+add-prefix := ../liblemma ../libcorm
 
 include ../mk/include.mk
 
@@ -15,7 +17,7 @@ include ../mk/include.mk
 # Defined at the SYS level (not per-target): portable.mk folds LDLIBS-${SYS} into the
 # global LDLIBS, which the generic rules emit AFTER every per-target library. Required
 # for correct left-to-right static archive resolution: purify.o (in libhyle.a) references
-# pcre2_reg*, so -lpcre2 must come after -lhyle/-lstoma/-lcorm.
+# pcre2_reg*, so -lpcre2 must come after -lhyle/-llemma/-lcorm.
 LDLIBS-Windows := -lpcre2-posix -lpcre2-8
 
 # Install pkgconfig descriptor
@@ -40,8 +42,10 @@ zig-bindings/hyle_wasm.wasm: zig-bindings/src/*.zig
 	cd zig-bindings && $(ZIG) build && cp zig-out/bin/hyle_wasm.wasm ../$@
 
 zig-test:
-	cd zig-bindings && $(ZIG) build test
+	@if command -v $(ZIG) >/dev/null 2>&1; then \
+		cd zig-bindings && $(ZIG) build test; \
+	fi
 
 test: all
-	LD_LIBRARY_PATH=./lib:../libcorm/lib:../libstoma/lib ./bin/hyle_test${EXE}
+	LD_LIBRARY_PATH=./lib:../libcorm/lib:../liblemma/lib ./bin/hyle_test${EXE}
 	$(MAKE) zig-test
