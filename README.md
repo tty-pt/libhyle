@@ -17,8 +17,44 @@
 
 `libhyle` connects low-level hash maps and tokenizers to high-level application schemas:
 - **Storage Engine**: Built on [libcorm](https://github.com/tty-pt/libcorm) for opaque fast row and field hash stores.
-- **Search Tokenizer**: Uses [liblemma](https://github.com/tty-pt/liblemma) for accent-preserving full-text substring and phrase search.
+- **Search Tokenizer**: Uses [liblemma](https://github.com/tty-pt/liblemma) for accent-preserving full-text substring and phrase search (`pão ≠ pao`).
 - **UI Bridge**: Bridges directly to [libbud](https://github.com/tty-pt/libbud) via `libhyle-bud` to bind schema fields to isomorphic DOM tables and filters.
+- **REST Connector**: Exposes schemas and CRUD queries over HTTP via [axil-hyle](https://github.com/tty-pt/axil-hyle).
+
+---
+
+## Field Types & Schema Specification
+
+Each dataset is defined by an array of `hyle_field_t` descriptors:
+
+| Field Type | Enum Value | Description |
+| :--- | :--- | :--- |
+| **String** | `HYLE_FIELD_STRING` | UTF-8 text string; tokenized for FTS when `searchable = 1` |
+| **Integer** | `HYLE_FIELD_INT` | 64-bit signed integer; supports numeric range filters |
+| **Float** | `HYLE_FIELD_FLOAT` | 64-bit IEEE double; supports numeric range filters |
+| **Boolean** | `HYLE_FIELD_BOOL` | Single-byte flag (`0` or `1`) |
+| **Reference** | `HYLE_FIELD_REF` | Foreign key referencing another dataset's primary key |
+| **Blob** | `HYLE_FIELD_BLOB` | Raw opaque binary data with length prefix |
+
+### Field Attributes
+- `.required = 1`: Field must be present during row insertion (`hyle_purify_row`).
+- `.writable = 1`: Field can be modified by user submissions.
+- `.searchable = 1`: Field is indexed in the lexical inverted index for `q=` queries.
+
+---
+
+## Query String Grammar (`hyle_parse_query`)
+
+`libhyle` parses URL-encoded query strings directly into typed query structs:
+
+| Query Parameter | Example | Behavior |
+| :--- | :--- | :--- |
+| `q` | `?q=love` | Lexical full-text search across all searchable string fields |
+| `filter_<field>` | `?filter_year=1978` | Exact-match equality filter on a specific field |
+| `sort` | `?sort=year` | Schema field name to order results by |
+| `order` | `?order=desc` | Ordering direction: `asc` or `desc` (default: `asc`) |
+| `page` | `?page=2` | 1-based page number |
+| `per_page` | `?per_page=20` | Maximum rows returned per page (default: `20`) |
 
 ---
 
