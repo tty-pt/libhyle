@@ -7,6 +7,7 @@
 #include "hyle/hyle.h"
 #include "hyle/registry.h"
 #include <ttypt/corm.h>
+#include <ttypt/lemma.h>
 
 static int failures = 0;
 static int total = 0;
@@ -2080,6 +2081,64 @@ static void test_prefilter_q_labels(void)
  * Phase 3: combined main
  * ================================================================ */
 
+static void test_tokenized_fields(void)
+{
+	printf("\n=== tokenized fields in registry ===\n");
+
+	static const hyle_field_t fields[] = {
+		{ "id", HYLE_FIELD_STRING, 0, NULL, NULL, 1, 0, 0, 0, 0, NULL, 0, 0, NULL },
+		{ "desc", HYLE_FIELD_STRING, 1, NULL, NULL, 0, 0, 0, 0, 0, NULL, 1, 0, NULL },
+	};
+
+	unsigned row_hd = hyle_registry_register("tok_test", fields, 2, 0, 0, NULL);
+	CHECK(row_hd != 0, "tok_test source registered");
+
+	const char *text = "o pão de cada dia com música";
+	uint16_t toks[64];
+	size_t ntoks = 0;
+	int rc_enc = lemma_tok_encode(NULL, text, strlen(text), toks, 64, &ntoks);
+	CHECK(rc_enc == 0, "encode text ok");
+
+	int rc_put = hyle_registry_put_tokens("tok_test", "r1", "desc", toks, ntoks);
+	CHECK(rc_put == 0, "put_tokens ok");
+
+	/* Lazy on-demand decode via hyle_field_get_str */
+	const char *decoded = hyle_field_get_str("tok_test", "r1", "desc");
+	CHECK(decoded != NULL, "hyle_field_get_str returns non-null");
+	CHECK(decoded && strcmp(decoded, text) == 0, "decoded string matches original exactly");
+
+	/* FTS query over tokenized field */
+	hyle_query_t q;
+	hyle_row_set_t rs;
+
+	/* Query exact accented word */
+	char q1[] = "desc=pão";
+	hyle_parse_query(q1, &q);
+	int rc = hyle_registry_query("tok_test", &q, &rs, NULL);
+	CHECK(rc == 0, "query pão ok");
+	CHECK_IDS(rs, "r1");
+	hyle_query_clear(&q);
+	corm_close(rs.row_hd);
+
+	/* Query unaccented word (must not match: pão != pao) */
+	char q2[] = "desc=pao";
+	hyle_parse_query(q2, &q);
+	rc = hyle_registry_query("tok_test", &q, &rs, NULL);
+	CHECK(rc == 0, "query pao ok");
+	CHECK(corm_count(rs.row_hd, NULL) == 0, "unaccented pao does not match pão");
+	hyle_query_clear(&q);
+	corm_close(rs.row_hd);
+
+	/* Query phrase over tokenized field */
+	char q3[] = "desc=\"cada dia\"";
+	hyle_parse_query(q3, &q);
+	rc = hyle_registry_query("tok_test", &q, &rs, NULL);
+	CHECK(rc == 0, "phrase query ok");
+	CHECK_IDS(rs, "r1");
+	hyle_query_clear(&q);
+	corm_close(rs.row_hd);
+}
+
 int main(void)
 {
 	printf("libhyle Phase 1+2+3 tests\n");
@@ -2178,6 +2237,7 @@ int main(void)
 	test_prefilter_multi_ref_field_default_and();
 	test_prefilter_ref_multi_value();
 	test_prefilter_q_labels();
+	test_tokenized_fields();
 
 	printf("\n-----------------------\n");
 	printf("Results: %d/%d passed", total - failures, total);

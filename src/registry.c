@@ -16,6 +16,7 @@ typedef struct {
 	char source_id[128];
 	unsigned row_hd;
 	unsigned fields_hd;
+	unsigned tokens_hd;
 	const hyle_field_t *fields;
 	size_t field_count;
 	uint32_t record_id;
@@ -86,6 +87,90 @@ int hyle_derive_register(const char *derive_key, hyle_derive_fn_t fn, void *user
 	return 0;
 }
 
+#define DECODE_RING_SLOTS 8
+#define DECODE_BUF_SIZE   4096
+static _Thread_local char g_decode_ring[DECODE_RING_SLOTS][DECODE_BUF_SIZE];
+static _Thread_local unsigned g_decode_ring_idx = 0;
+
+static char *alloc_decode_slot(void)
+{
+	char *buf = g_decode_ring[g_decode_ring_idx % DECODE_RING_SLOTS];
+	g_decode_ring_idx++;
+	return buf;
+}
+
+static size_t hyle_tok_measure(const void *data)
+{
+	if (!data)
+		return 0;
+	const uint16_t *count = (const uint16_t *)data;
+	return sizeof(uint16_t) + (size_t)(*count) * sizeof(uint16_t);
+}
+
+static uint32_t g_hyle_tok_type = 0;
+
+int hyle_registry_put_tokens(const char *source_id, const char *row_id, const char *field,
+                             const uint16_t *tokens, size_t n_tokens)
+{
+	registry_entry_t *e;
+	char key[1024];
+
+	if (!source_id || !row_id || !field || !tokens)
+		return -1;
+	e = find_entry(source_id);
+	if (!e || !e->tokens_hd)
+		return -1;
+
+	size_t payload_bytes = sizeof(uint16_t) + n_tokens * sizeof(uint16_t);
+	uint16_t *payload = malloc(payload_bytes);
+	if (!payload)
+		return -1;
+	payload[0] = (uint16_t)n_tokens;
+	memcpy(payload + 1, tokens, n_tokens * sizeof(uint16_t));
+
+	snprintf(key, sizeof(key), "%s:%s", row_id, field);
+	corm_put(e->tokens_hd, key, payload);
+	free(payload);
+
+	corm_put(e->row_hd, row_id, "");
+	if (e->lemma)
+		e->lemma_dirty = 1;
+	return 0;
+}
+
+const char *hyle_field_get_str(const char *source_id, const char *row_id, const char *field)
+{
+	registry_entry_t *e;
+	char key[1024];
+
+	if (!source_id || !row_id || !field)
+		return NULL;
+	e = find_entry(source_id);
+	if (!e)
+		return NULL;
+
+	snprintf(key, sizeof(key), "%s:%s", row_id, field);
+
+	if (e->tokens_hd) {
+		const void *raw = corm_get(e->tokens_hd, key);
+		if (raw) {
+			const uint16_t *hdr = (const uint16_t *)raw;
+			uint16_t n_tokens = hdr[0];
+			const uint16_t *tokens = hdr + 1;
+
+			char *buf = alloc_decode_slot();
+			size_t bw = 0;
+			if (lemma_tok_decode(NULL, tokens, (size_t)n_tokens, buf, DECODE_BUF_SIZE, &bw) == 0) {
+				return buf;
+			}
+		}
+	}
+
+	if (!e->fields_hd)
+		return NULL;
+	return (const char *)corm_get(e->fields_hd, key);
+}
+
 
 const char *hyle_derive_call(const void *def, const char *derive_key, const char *row_id, const char *field_name, void *user)
 {
@@ -154,6 +239,13 @@ unsigned hyle_registry_register(
 	e->record_id = record_id;
 	e->user = user;
 
+	if (!g_hyle_tok_type) {
+		g_hyle_tok_type = corm_mreg(hyle_tok_measure);
+	}
+	if (e->tokens_hd)
+		corm_close(e->tokens_hd);
+	e->tokens_hd = corm_open(NULL, NULL, CM_STR, g_hyle_tok_type, 0x3FF, CM_SORTED);
+
 	/* Full-text index: one per source, only when a field opts in. */
 	if (e->lemma) {
 		lemma_close(e->lemma);
@@ -202,6 +294,22 @@ int hyle_registry_put(
 		} else {
 			snprintf(key, sizeof(key), "%s:%s", row_id, names[i]);
 			corm_put(e->fields_hd, key, values[i] ? values[i] : "");
+		}
+		if (e->tokens_hd && values[i]) {
+			uint16_t toks[1024];
+			size_t n_toks = 0;
+			if (lemma_tok_encode(NULL, values[i], strlen(values[i]), toks, 1024, &n_toks) == 0) {
+				size_t pb = sizeof(uint16_t) + n_toks * sizeof(uint16_t);
+				uint16_t *pl = malloc(pb);
+				if (pl) {
+					pl[0] = (uint16_t)n_toks;
+					memcpy(pl + 1, toks, n_toks * sizeof(uint16_t));
+					char tkey[1024];
+					snprintf(tkey, sizeof(tkey), "%s:%s", row_id, names[i]);
+					corm_put(e->tokens_hd, tkey, pl);
+					free(pl);
+				}
+			}
 		}
 	}
 	if (e->lemma)
@@ -659,19 +767,21 @@ static unsigned prefilter_fts(
 					continue;
 				if (!rid || !rid[0])
 					continue;
-				if (e->fields[sj].type == HYLE_FIELD_DERIVED) {
-					const void *def = e->user;
-					fv = hyle_derive_call(def, e->fields[sj].derive_key, rid, fname, NULL);
+				snprintf(key, sizeof(key), "%s:%s", rid, fname);
+				const void *raw_tok = e->tokens_hd ? corm_get(e->tokens_hd, key) : NULL;
+				if (raw_tok) {
+					const uint16_t *hdr = (const uint16_t *)raw_tok;
+					lemma_index_tokens(e->lemma, fname, rid, hdr + 1, (size_t)hdr[0]);
 				} else {
-					snprintf(
-					        key, sizeof(key), "%s:%s", rid,
-					        fname);
-					fv = corm_get(e->fields_hd, key);
-				}
-				if (fv && *fv) {
-					lemma_index(
-					        e->lemma, fname,
-					        rid, fv);
+					if (e->fields[sj].type == HYLE_FIELD_DERIVED) {
+						const void *def = e->user;
+						fv = hyle_derive_call(def, e->fields[sj].derive_key, rid, fname, NULL);
+					} else {
+						fv = corm_get(e->fields_hd, key);
+					}
+					if (fv && *fv) {
+						lemma_index(e->lemma, fname, rid, fv);
+					}
 				}
 			}
 		}
