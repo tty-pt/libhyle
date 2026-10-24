@@ -86,6 +86,34 @@ int hyle_registry_put(const char *source_id,
 	const char **values,
 	size_t count);
 
+/**
+ * @brief Put a tokenized field into the registry for (source_id, row_id, field).
+ *
+ * Encodes the token stream with compact prefix \x1bT and stores it in fields_hd.
+ *
+ * @param[in] source_id Dataset ID.
+ * @param[in] row_id    Row ID.
+ * @param[in] field     Field name.
+ * @param[in] tokens    Array of token IDs.
+ * @param[in] n_tokens  Token count.
+ * @return 0 on success, -1 on error.
+ */
+int hyle_registry_put_tokens(const char *source_id, const char *row_id, const char *field,
+                             const uint16_t *tokens, size_t n_tokens);
+
+/**
+ * @brief Get a field value as a string for (row_id, field_name).
+ *
+ * If the field was stored as a tokenized stream, decodes it on-demand into
+ * a thread-local buffer without heap allocation.
+ *
+ * @param[in] source_id Dataset ID.
+ * @param[in] row_id    Row ID.
+ * @param[in] field     Field name.
+ * @return String pointer (caller does not free), or NULL if not found.
+ */
+const char *hyle_field_get_str(const char *source_id, const char *row_id, const char *field);
+
 /*
  * Delete a row from a registered source.
  * Removes row_id from row_hd and all row_id:* entries from fields_hd.
