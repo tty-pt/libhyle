@@ -5,13 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.4.0
+## [1.5.0]
+
+- **Binary Token Array Storage & Rotating Ring Buffer (`src/value.c`, `src/field.c`)**:
+  - Implemented binary token array representations for compact field storage.
+  - Added rotating ring buffer for lazy zero-copy SSR field decoding and serialization.
+
+## [1.4.0]
 
 - **Lemma Full-Text Search Integration**: Updated dataset registry and search query pipelines to consume `liblemma` instead of `libstoma`.
 - **Corm 2.0 Compatibility**: Verified full compatibility with modernized Corm hashtable and record schema primitives.
 - **Documentation & Visual Assets**: Updated README and added project branding assets.
 
-## 1.3.0
+## [1.3.0]
 
 - `libqmap` → `libcorm` rename throughout (denotes the hashtable layer under the schema registry and query pipeline).
 - **Internal restructuring**: `src/source.c` → `src/registry.c` (dataset/registry separation), new `src/url.c` for shared URL helpers, and a reorganized `hyle_test.c`/`test.sh` suite.

@@ -119,6 +119,7 @@ cc catalog_demo.c $(pkg-config --cflags --libs hyle)
 ## Design Philosophy: Neutral by Design
 
 * **Zero UI or Network Coupling**: `libhyle.so` contains zero bud or HTTP symbols. It manages pure data and schemas, letting any transport or renderer handle presentation.
+* **Compact Binary Token Array Storage**: Supports binary token array representations (`src/value.c`, `src/field.c`) with an integrated rotating ring buffer for lazy zero-copy SSR decoding and high-throughput serialization.
 * **Accent-Sensitive Correctness**: Search powered by [liblemma](https://github.com/tty-pt/liblemma) guarantees `pão ≠ pao` while keeping queries fast and predictable.
 * **Multi-Language Bindings**: First-class FFI row formats support Rust (`crates/hyle/`) and Zig (`zig-bindings/`) mirrors without memory copies.
 
