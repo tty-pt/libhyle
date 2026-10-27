@@ -9,58 +9,13 @@
 [![No UI / transport deps](https://img.shields.io/badge/UI%2Ftransport-none-brightgreen)](#)
 [![Data Kernel](https://img.shields.io/badge/kernel-data%20%2B%20query-16A34A)](#)
 
-> Define your data schema once in pure C and get instant full-text search, filtering, sorting, pagination, and row validation without SQL overhead.
+> Define your data schema once in pure C and get instant full-text search, filtering, sorting, pagination, and row validation without SQL overhead. Canonical header is `<hyle/hyle.h>`.
 
 ---
 
-## Architecture & Storage Integration
+## 1. Quickstart
 
-`libhyle` connects low-level hash maps and tokenizers to high-level application schemas:
-- **Storage Engine**: Built on [libcorm](https://github.com/tty-pt/libcorm) for opaque fast row and field hash stores.
-- **Search Tokenizer**: Uses [liblemma](https://github.com/tty-pt/liblemma) for accent-preserving full-text substring and phrase search (`pão ≠ pao`).
-- **UI Bridge**: Bridges directly to [libbud](https://github.com/tty-pt/libbud) via `libhyle-bud` to bind schema fields to isomorphic DOM tables and filters.
-- **REST Connector**: Exposes schemas and CRUD queries over HTTP via [axil-hyle](https://github.com/tty-pt/axil-hyle).
-
----
-
-## Field Types & Schema Specification
-
-Each dataset is defined by an array of `hyle_field_t` descriptors:
-
-| Field Type | Enum Value | Description |
-| :--- | :--- | :--- |
-| **String** | `HYLE_FIELD_STRING` | UTF-8 text string; tokenized for FTS when `searchable = 1` |
-| **Integer** | `HYLE_FIELD_INT` | 64-bit signed integer; supports numeric range filters |
-| **Float** | `HYLE_FIELD_FLOAT` | 64-bit IEEE double; supports numeric range filters |
-| **Boolean** | `HYLE_FIELD_BOOL` | Single-byte flag (`0` or `1`) |
-| **Reference** | `HYLE_FIELD_REF` | Foreign key referencing another dataset's primary key |
-| **Blob** | `HYLE_FIELD_BLOB` | Raw opaque binary data with length prefix |
-
-### Field Attributes
-- `.required = 1`: Field must be present during row insertion (`hyle_purify_row`).
-- `.writable = 1`: Field can be modified by user submissions.
-- `.searchable = 1`: Field is indexed in the lexical inverted index for `q=` queries.
-
----
-
-## Query String Grammar (`hyle_parse_query`)
-
-`libhyle` parses URL-encoded query strings directly into typed query structs:
-
-| Query Parameter | Example | Behavior |
-| :--- | :--- | :--- |
-| `q` | `?q=love` | Lexical full-text search across all searchable string fields |
-| `filter_<field>` | `?filter_year=1978` | Exact-match equality filter on a specific field |
-| `sort` | `?sort=year` | Schema field name to order results by |
-| `order` | `?order=desc` | Ordering direction: `asc` or `desc` (default: `asc`) |
-| `page` | `?page=2` | 1-based page number |
-| `per_page` | `?per_page=20` | Maximum rows returned per page (default: `20`) |
-
----
-
-## Quickstart
-
-Register a typed data schema, insert records, and run a paginated full-text search query in 20 lines:
+Register a typed data schema, insert records, and run a paginated full-text search query in under 20 lines:
 
 ```c
 #include <stdio.h>
@@ -96,12 +51,12 @@ int main(void) {
 
 Compile and link:
 ```sh
-cc catalog_demo.c $(pkg-config --cflags --libs hyle)
+cc catalog_demo.c $(pkg-config --cflags --libs hyle) -o catalog_demo
 ```
 
 ---
 
-## Core API (The Essential 20%)
+## 2. Core API Reference
 
 | Function | Signature | Description |
 | :--- | :--- | :--- |
@@ -112,31 +67,49 @@ cc catalog_demo.c $(pkg-config --cflags --libs hyle)
 | `hyle_purify_row` | `int hyle_purify_row(source, names, vals, n, errs)` | Enforce schema validation (types, regex, ranges) |
 | `hyle_val_to_json` | `char *hyle_val_to_json(hyle_val_t val)` | Serialize 16-byte tagged values to JSON |
 
-👉 *For blueprint manifests, ordered positional arrays, and Rust/Zig FFI bindings, see `include/hyle/hyle.h` and [docs/PUBLISH.md](docs/PUBLISH.md).*
+---
+
+## 3. Field Types & Schema Attributes
+
+| Field Type | Enum Value | Description |
+| :--- | :--- | :--- |
+| **String** | `HYLE_FIELD_STRING` | UTF-8 text string; tokenized for FTS when `searchable = 1` |
+| **Integer** | `HYLE_FIELD_INT` | 64-bit signed integer; supports numeric range filters |
+| **Float** | `HYLE_FIELD_FLOAT` | 64-bit IEEE double; supports numeric range filters |
+| **Boolean** | `HYLE_FIELD_BOOL` | Single-byte flag (`0` or `1`) |
+| **Reference** | `HYLE_FIELD_REF` | Foreign key referencing another dataset's primary key |
+| **Blob** | `HYLE_FIELD_BLOB` | Raw opaque binary data with length prefix |
+
+*Attributes: `.required = 1` (must be present on write), `.writable = 1` (editable by user), `.searchable = 1` (lexically indexed for `q=` queries).*
 
 ---
 
-## Design Philosophy: Neutral by Design
+## 4. Query String Grammar (`hyle_parse_query`)
 
-* **Zero UI or Network Coupling**: `libhyle.so` contains zero bud or HTTP symbols. It manages pure data and schemas, letting any transport or renderer handle presentation.
-* **Compact Binary Token Array Storage**: Supports binary token array representations (`src/value.c`, `src/field.c`) with an integrated rotating ring buffer for lazy zero-copy SSR decoding and high-throughput serialization.
-* **Accent-Sensitive Correctness**: Search powered by [liblemma](https://github.com/tty-pt/liblemma) guarantees `pão ≠ pao` while keeping queries fast and predictable.
-* **Multi-Language Bindings**: First-class FFI row formats support Rust (`crates/hyle/`) and Zig (`zig-bindings/`) mirrors without memory copies.
+`libhyle` parses URL query strings directly into typed query structs:
+
+| Parameter | Example | Behavior |
+| :--- | :--- | :--- |
+| `q` | `?q=love` | Lexical full-text search across all searchable string fields |
+| `filter_<field>` | `?filter_year=1978` | Exact-match equality filter on a specific field |
+| `sort` | `?sort=year` | Schema field name to order results by |
+| `order` | `?order=desc` | Ordering direction: `asc` or `desc` (default: `asc`) |
+| `page` / `per_page` | `?page=2&per_page=20` | 1-based page number and page size |
 
 ---
 
-## Installation & Build
+## 5. Installation & Build
 
 ### Prebuilt Packages
 Prebuilt packages are distributed on tty.pt for Linux (APT / Alpine / Arch / Fedora-RHEL), macOS (Homebrew), Windows (winget / MSYS2), and OpenBSD. Follow the [installation instructions](https://github.com/tty-pt/ci/blob/main/docs/install.md) and use **libhyle** as the package name.
 
 ### Build from Source
 ```sh
-make                  # builds lib/libhyle.so + bin/hyle_test
-make test             # run in-tree unit and schema tests
+make                  # builds lib/libhyle.so
+make test             # run unit, query, and validation tests
 sudo make install     # install headers and library to system
 ```
 
 ## License
 
-BSD 2-Clause License. Copyright (c) 2026, tty-pt. See `LICENSE`.
+BSD 2-Clause License. Copyright (c) 2025, tty-pt. See `LICENSE`.
