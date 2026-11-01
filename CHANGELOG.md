@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.0]
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/tty-pt/libhyle/main/assets/logo.png" alt="libhyle logo" width="220" />
-</p>
-
 - **Binary Token Array Storage & Rotating Ring Buffer (`src/value.c`, `src/field.c`)**:
   - Implemented binary token array representations for compact field storage.
   - Added rotating ring buffer for lazy zero-copy SSR field decoding and serialization.

@@ -1,0 +1,45 @@
+{
+  "name": "@ttypt/hyle",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Universal Node.js and Browser bindings for libhyle Data Schema & Purification Engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "include",
+    "bin",
+    "assets",
+    "*.pc",
+    "README.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "hyle-to-ts": "./bin/hyle-to-ts.js"
+  },
+  "scripts": {
+    "build:native": "mkdir -p build/Release && gcc -O3 -fPIC -shared -I/usr/include/node -I../include -I../../libcorm/include -I../../liblemma/include native/hyle_napi.c -L../lib -Wl,-rpath,../lib -L/usr/lib -lhyle -lcorm -o build/Release/hyle_node.node 2>/dev/null || true",
+    "build:wasm": "clang --target=wasm32-wasi -mexec-model=reactor -Wl,--no-entry -Wl,--allow-undefined -Wl,--export=hyle_wasm_validate_field -Wl,--export=malloc -Wl,--export=free -O3 -o dist/hyle.wasm wasm/hyle_wasm.c 2>/dev/null || true",
+    "build": "npm run build:native && npm run build:wasm",
+    "test": "node --test tests/hyle.test.mjs"
+  },
+  "keywords": [
+    "hyle",
+    "libhyle",
+    "schema",
+    "validation",
+    "purify",
+    "data-engine"
+  ],
+  "author": "Paulo Quirino",
+  "license": "BSD-2-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tty-pt/libhyle.git",
+    "directory": "npm"
+  },
+  "homepage": "https://github.com/tty-pt/libhyle/tree/main/npm#readme",
+  "bugs": {
+    "url": "https://github.com/tty-pt/libhyle/issues"
+  }
+}
