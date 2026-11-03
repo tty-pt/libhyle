@@ -8,7 +8,7 @@ LDLIBS-libhyle := -llemma -lcorm
 libhyle-obj-y := src/ctx.o src/value.o src/query.o src/view.o src/field.o src/blueprint.o src/purify.o src/registry.o src/url.o
 LDLIBS-hyle_test := -lhyle -llemma -lcorm
 
-add-prefix := ../liblemma ../libcorm
+WASM_SRCS := npm/wasm/hyle_wasm.c
 
 include ../mk/include.mk
 

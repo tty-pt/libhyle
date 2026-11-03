@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tty-pt/libhyle/main/assets/logo.png" alt="@ttypt/hyle logo" width="220" />
+  <img src="https://raw.githubusercontent.com/tty-pt/libhyle/main/assets/logo.png" alt="@tty-pt/hyle logo" width="220" />
 </p>
 
-# @ttypt/hyle
+# @tty-pt/hyle
 
 [![npm version](https://img.shields.io/badge/npm-v0.1.0-CB3837?logo=npm)](#)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue)](#)
@@ -18,11 +18,11 @@
 ## 1. Quickstart
 
 ```bash
-npm install @ttypt/hyle
+npm install @tty-pt/hyle
 ```
 
 ```typescript
-import { defineSchema, createFormValidator } from "@ttypt/hyle";
+import { defineSchema, createFormValidator } from "@tty-pt/hyle";
 
 // 1. Author schemas in natural TypeScript (no C knowledge required)
 export const MemberSchema = defineSchema({
@@ -49,7 +49,7 @@ console.log(result.errors); // []
 Provides instant keystroke validation with zero external framework dependencies (works with vanilla DOM, React, Svelte, Vue):
 
 ```typescript
-import { createFormValidator } from "@ttypt/hyle";
+import { createFormValidator } from "@tty-pt/hyle";
 
 const form = createFormValidator(MemberSchema, { fullName: "", email: "" });
 
@@ -84,7 +84,32 @@ export interface Member {
 
 ---
 
-## 4. Single Source of Truth Validation
+## 4. JavaScript / TypeScript API Reference
+
+### `defineSchema(fieldMap: Record<string, FieldConfig>): HyleSchema`
+Creates a schema definition with declarative validation rules.
+
+### `HyleSchema`
+* `constructor(fields?: FieldDescriptor[])`
+* `.addField(field: FieldDescriptor): this`
+* `.validate(values: Record<string, any>): { valid: boolean, errors: ValidationError[] }`: Strictly executes in compiled WebAssembly / C via `hyle_wasm_validate_field()`.
+* `.toJSON(): object`
+
+### `validateRow(fields: FieldDescriptor[], values: Record<string, any>): ValidationError[]`
+Low-level field validator executing C `hyle_purify` logic via WebAssembly.
+
+### `createFormValidator(schema: HyleSchema, initialValues?: Record<string, any>)`
+Reactive form validator providing observable state updates (`isValid`, `isDirty`, `values`, `errors`).
+
+### `generateTypeScriptTypes(schema: HyleSchema, interfaceName?: string): string`
+Generates formatted TypeScript interface source code matching the schema fields.
+
+### `getHyleWasm(): WebAssembly.Instance`
+Returns the WebAssembly instance loaded on the Stele shared-memory substrate.
+
+---
+
+## 5. Single Source of Truth Validation
 
 - **Browser**: Keystrokes run `hyle_purify_row` in WebAssembly (`dist/hyle.wasm`).
 - **Server**: Next.js Server Actions or Node API routes execute the exact same C validation logic.

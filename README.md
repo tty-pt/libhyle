@@ -4,7 +4,7 @@
 
 # libhyle
 
-[![npm](https://img.shields.io/badge/npm-@ttypt/hyle-CB3837?logo=npm)](npm/README.md)
+[![npm](https://img.shields.io/badge/npm-@tty-pt/hyle-CB3837?logo=npm)](npm/README.md)
 [![C99](https://img.shields.io/badge/C-C99-555?logo=c)](#)
 [![BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue)](#)
 [![No UI / transport deps](https://img.shields.io/badge/UI%2Ftransport-none-brightgreen)](#)
@@ -113,13 +113,13 @@ sudo make install     # install headers and library to system
 
 ---
 
-## 6. JavaScript & WebAssembly Bindings (@ttypt/hyle)
+## 6. JavaScript & WebAssembly Bindings (@tty-pt/hyle)
 
 Official Node.js and Browser WebAssembly bindings are colocated in [`npm/`](npm/README.md):
 - **TypeScript-First Schemas**: Author schemas in natural TypeScript with `defineSchema` without touching C, executing through the C99 `hyle_purify_row` engine under the hood.
 - **Framework-Agnostic Reactive Form Controller**: Instant keystroke validation with dirty/validity state tracking for vanilla DOM, React, Svelte, or Vue.
 - **CLI Codegen (`hyle-to-ts`)**: Automatically generate exact TypeScript interfaces from shared JSON/C schemas.
-- **C Development Headers**: Install via `npm install @ttypt/hyle` and consume headers from `node_modules/@ttypt/hyle/include`.
+- **C Development Headers**: Install via `npm install @tty-pt/hyle` and consume headers from `node_modules/@tty-pt/hyle/include`.
 
 👉 *For complete TypeScript usage, reactive form guides, and API reference, see [npm/README.md](npm/README.md).*
 

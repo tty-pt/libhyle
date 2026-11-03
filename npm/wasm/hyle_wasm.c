@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <ttypt/iso.h>
 
 typedef struct {
     char name[64];
@@ -9,7 +10,7 @@ typedef struct {
     size_t max_length;
 } wasm_hyle_field_t;
 
-int hyle_wasm_validate_field(int required, size_t min_len, size_t max_len, const char *val) {
+ISO_EXPORT(int, hyle_wasm_validate_field, int required, size_t min_len, size_t max_len, const char *val) {
     if (required && (!val || val[0] == '\0')) {
         return 1; // required error
     }
