@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] (target: v1.7.0)
+
+### Added
+- **Sovereign Design System Styles (`htdocs/hyle.css`)**:
+  - Added comprehensive CSS styling rules for Hyle data tables, filters, forms, and pickers.
+
 ## [1.6.1] - 2026-11-03
 
 - **Binary Token Array Storage & Rotating Ring Buffer (`src/value.c`, `src/field.c`)**:
