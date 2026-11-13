@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-11-13
+
+- **Packaging**:
+  - Requires `@tty-pt/stele` >=1.6.2 (`^1.6.2`).
+  - The npm tarball is built once by CI, with a self-contained native addon per platform (`prebuilds/<os>-<cpu>/`) next to `hyle.wasm`, and published as verified.
+
+## [1.7.2] - 2026-11-13
+
+- **Disjoint Global-Base (`hyle.wasm`)**: rebuilt the shared-memory reactor at a disjoint `--global-base` so it cannot collide with other co-loaded WASM modules.
+
 ## [1.7.1] - 2026-11-13
 
 ### Fixed

@@ -14,7 +14,7 @@ jobs:
       run_tests: true
       deps: "libcorm,liblemma"
       deps_pacman: "libstele,libcorm,liblemma"
-      deps_winget: "mingw-w64-x86_64-pcre2"
+      deps_winget: "mingw-w64-x86_64-pcre2,mingw-w64-x86_64-xxhash"
       deps_winget_tty: "libstele,libcorm,liblemma"
       # Manual runs (workflow_dispatch) build a reduced set; the Windows package needs a tag-derived version.
       publish_to: ${{ github.event_name == 'workflow_dispatch' && 'rpm,brew' || 'deb,apk,rpm,pacman,brew,openbsd,winget' }}

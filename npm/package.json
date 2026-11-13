@@ -1,6 +1,6 @@
 {
   "name": "@tty-pt/hyle",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "type": "module",
   "description": "Universal Node.js and Browser bindings for libhyle Data Schema & Purification Engine",
   "main": "dist/index.js",
