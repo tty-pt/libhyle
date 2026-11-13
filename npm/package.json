@@ -25,10 +25,10 @@
     "test": "node --test tests/hyle.test.mjs"
   },
   "peerDependencies": {
-    "@tty-pt/stele": ">=1.6.1"
+    "@tty-pt/stele": ">=1.6.2"
   },
   "devDependencies": {
-    "@tty-pt/stele": "^1.6.1"
+    "@tty-pt/stele": "^1.6.2"
   },
   "keywords": [
     "hyle",
