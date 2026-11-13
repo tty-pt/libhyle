@@ -4,7 +4,7 @@
 
 # @tty-pt/hyle
 
-[![npm version](https://img.shields.io/badge/npm-v0.1.0-CB3837?logo=npm)](#)
+[![npm version](https://img.shields.io/npm/v/@tty-pt/hyle.svg)](https://www.npmjs.com/package/@tty-pt/hyle)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue)](#)
 [![TypeScript Ready](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript)](#)
 [![Node.js Native](https://img.shields.io/badge/Node.js-N--API-339933?logo=node.js)](#)
@@ -34,7 +34,7 @@ export const MemberSchema = defineSchema({
 // 2. Validate input on server or client with C99 purify engine:
 const result = MemberSchema.validate({
   fullName: "Ana Martins",
-  email: "ana@dunacowork.pt",
+  email: "ana@example.com",
   credits: 5
 });
 
@@ -118,7 +118,7 @@ Returns the WebAssembly instance loaded on the Stele shared-memory substrate.
 
 ---
 
-## 5. Building from Source
+## 6. Building from Source
 
 ```bash
 make npm-build    # Compiles native addon and WASM reactor

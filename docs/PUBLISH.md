@@ -1,60 +1,45 @@
-# Publish steps
+# Publishing @tty-pt/hyle & libhyle
 
-## Pre-flight
+## Pre-flight Checklist
 
-- [ ] All tests pass
-  ```bash
-  cargo test -p hyle -p hyle-dioxus
-  cd packages/hyle-react && npm test
-  cd packages/hyle-react-dom && npm test
-  ```
-- [ ] `examples/dioxus/Cargo.toml` has `publish = false`
-- [ ] `CHANGELOG.md` date is set
-- [ ] Logged in: `cargo login`, `npm login` (org: `@ttypt`)
+1. **Verify C kernel and tests**:
+   ```bash
+   make clean
+   make test
+   ```
+2. **Verify npm package and Node-API / WASM bindings**:
+   ```bash
+   make npm-test
+   ```
+3. **Verify Git working tree cleanliness**:
+   ```bash
+   git status -s  # Must be empty
+   ```
+4. **Ensure Version Parity**:
+   Verify version matches across:
+   - `hyle.pc`: `Version: 1.7.0`
+   - `npm/hyle.pc`: `Version: 1.7.0`
+   - `npm/package.json`: `"version": "1.7.0"`
+   - `CHANGELOG.md`: `## [1.7.0] - <date>`
 
-## 1. Build npm packages
+---
 
-In dependency order:
+## 1. Build npm Package
 
 ```bash
-cd crates/hyle/pkg-src && npm run build
-cd packages/hyle-react && npm run build
-cd packages/hyle-react-dom && npm run build
+make npm-build
 ```
 
-## 2. Dry runs
+## 2. Publish to npm Registry
 
 ```bash
-cargo publish --dry-run -p hyle
-cargo publish --dry-run -p hyle-dioxus
-cargo publish --dry-run -p hyle-dioxus-native
-
-cd crates/hyle/pkg-src    && npm publish --dry-run --access public
-cd packages/hyle-react     && npm publish --dry-run --access public
-cd packages/hyle-react-dom && npm publish --dry-run --access public
+cd npm
+npm publish --access public
 ```
 
-## 3. Publish Rust crates
-
-Wait ~30s between each for the crates.io index to propagate.
+## 3. Git Tag & Release
 
 ```bash
-cargo publish -p hyle
-cargo publish -p hyle-dioxus
-cargo publish -p hyle-dioxus-native
-```
-
-## 4. Publish npm packages
-
-```bash
-cd crates/hyle/pkg-src    && npm publish --access public
-cd packages/hyle-react     && npm publish --access public
-cd packages/hyle-react-dom && npm publish --access public
-```
-
-## 5. Tag
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag -a v1.7.0 -m "Release v1.7.0: Sovereign design system stylesheet and styling assets"
+git push origin v1.7.0
 ```

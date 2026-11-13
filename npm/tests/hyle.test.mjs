@@ -31,7 +31,7 @@ test("defineSchema enables TypeScript-first schema declaration without touching 
   assert.ok(resInvalid.errors.some((e) => e.field === "fullName" && (e.rule === "minLength" || e.rule === "min_length")));
   assert.ok(resInvalid.errors.some((e) => e.field === "email" && e.rule === "pattern"));
 
-  const resValid = memberSchema.validate({ fullName: "Ana Martins", email: "ana@duna.pt" });
+  const resValid = memberSchema.validate({ fullName: "Ana Martins", email: "ana@example.com" });
   assert.equal(resValid.valid, true);
 });
 
