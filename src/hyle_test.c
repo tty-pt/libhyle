@@ -2077,6 +2077,39 @@ static void test_prefilter_q_labels(void)
 	hyle_row_set_free(&out);
 }
 
+static void test_prefilter_q_ranking(void)
+{
+	hyle_row_set_t out;
+
+	printf("\n=== prefilter q: field-weighted relevance ranking ===\n");
+	static const hyle_field_t rank_fields[] = {
+		{ "id", HYLE_FIELD_STRING, 1, NULL, NULL, 1, 0, 0, 0, 0, NULL, 0, 0, NULL, 0 },
+		{ "title", HYLE_FIELD_STRING, 1, NULL, NULL, 1, 0, 0, 0, 0, NULL, 1, 0, NULL, 100 },
+		{ "chords", HYLE_FIELD_STRING, 1, NULL, NULL, 0, 0, 0, 0, 0, NULL, 1, 0, NULL, 5 },
+	};
+	hyle_registry_register("rank.songs", rank_fields, 3, 0, 0, NULL);
+
+	const char *names[2] = { "title", "chords" };
+	const char *v1[2] = { "Yesterday", "Love is such an easy game" };
+	const char *v2[2] = { "Love Me Tender", "C G Am F" };
+	const char *v3[2] = { "Love", "Em A7 D" };
+
+	hyle_registry_put("rank.songs", "song_yest", names, v1, 2);
+	hyle_registry_put("rank.songs", "song_love", names, v2, 2);
+	hyle_registry_put("rank.songs", "song_exact", names, v3, 2);
+
+	char qbuf[64] = "q=love";
+	hyle_query_t q;
+	memset(&q, 0, sizeof(q));
+	hyle_parse_query(qbuf, &q);
+
+	hyle_registry_query("rank.songs", &q, &out, NULL);
+	/* Order: exact title ("song_exact") -> prefix title ("song_love") -> chords body ("song_yest") */
+	CHECK_ORDER(out, "song_exact", "song_love", "song_yest");
+	hyle_row_set_free(&out);
+	hyle_query_clear(&q);
+}
+
 /* ================================================================
  * Phase 3: combined main
  * ================================================================ */
@@ -2086,8 +2119,8 @@ static void test_tokenized_fields(void)
 	printf("\n=== tokenized fields in registry ===\n");
 
 	static const hyle_field_t fields[] = {
-		{ "id", HYLE_FIELD_STRING, 0, NULL, NULL, 1, 0, 0, 0, 0, NULL, 0, 0, NULL },
-		{ "desc", HYLE_FIELD_STRING, 1, NULL, NULL, 0, 0, 0, 0, 0, NULL, 1, 0, NULL },
+		{ "id", HYLE_FIELD_STRING, 0, NULL, NULL, 1, 0, 0, 0, 0, NULL, 0, 0, NULL, 0 },
+		{ "desc", HYLE_FIELD_STRING, 1, NULL, NULL, 0, 0, 0, 0, 0, NULL, 1, 0, NULL, 0 },
 	};
 
 	unsigned row_hd = hyle_registry_register("tok_test", fields, 2, 0, 0, NULL);
@@ -2237,6 +2270,7 @@ int main(void)
 	test_prefilter_multi_ref_field_default_and();
 	test_prefilter_ref_multi_value();
 	test_prefilter_q_labels();
+	test_prefilter_q_ranking();
 	test_tokenized_fields();
 
 	printf("\n-----------------------\n");

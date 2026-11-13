@@ -65,6 +65,8 @@ typedef struct {
 	int combine; /* 0 = OR (default), 1 = AND within-field */
 	/** Key that selects a derive provider for derived fields. */
 	const char *derive_key;
+	/** Custom search ranking weight (0 = auto-calculated based on kind/display). */
+	int search_weight;
 } hyle_field_t;
 
 /**

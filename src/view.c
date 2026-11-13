@@ -224,6 +224,68 @@ int hyle_ci_substr_punct(const char *str, const char *sub)
 	return ci_substr_punct(str, sub);
 }
 
+int hyle_ci_match_score(const char *str, const char *sub, int punct_norm)
+{
+	char fstr[4096];
+	char fsub[256];
+	size_t slen, nlen, i;
+	int found_prefix = 0;
+	int found_word = 0;
+	int found_sub = 0;
+
+	if (!sub || !*sub)
+		return 1;
+	if (!str || !*str)
+		return 0;
+
+	if (punct_norm) {
+		punct_normalize(fsub, sizeof(fsub), sub);
+		punct_normalize(fstr, sizeof(fstr), str);
+	} else {
+		snprintf(fsub, sizeof(fsub), "%s", sub);
+		snprintf(fstr, sizeof(fstr), "%s", str);
+	}
+
+	if (lemma_fold(fsub, sizeof(fsub), fsub) < 0 ||
+	    lemma_fold(fstr, sizeof(fstr), fstr) < 0)
+		return 0;
+
+	slen = strlen(fstr);
+	nlen = strlen(fsub);
+	if (nlen == 0 || nlen > slen)
+		return 0;
+
+	if (slen == nlen && strcmp(fstr, fsub) == 0)
+		return 10;
+
+	for (i = 0; i <= slen - nlen; i++) {
+		size_t j;
+		for (j = 0; j < nlen; j++) {
+			if (fstr[i + j] != fsub[j])
+				break;
+		}
+		if (j == nlen) {
+			found_sub = 1;
+			if (i == 0) {
+				found_prefix = 1;
+				break;
+			}
+			if (fstr[i - 1] == ' ' || fstr[i - 1] == '\t' || fstr[i - 1] == '\n') {
+				found_word = 1;
+			}
+		}
+	}
+
+	if (found_prefix)
+		return 4;
+	if (found_word)
+		return 2;
+	if (found_sub)
+		return 1;
+
+	return 0;
+}
+
 /* ---- multi-ref token match ---- */
 
 /*

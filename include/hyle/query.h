@@ -118,6 +118,17 @@ int hyle_ci_substr(const char *str, const char *sub);
  */
 int hyle_ci_substr_punct(const char *str, const char *sub);
 
+/**
+ * @brief Case-insensitive match precision scoring (0 = no match, 1 = substring, 2 = word boundary, 3 = prefix, 4 = exact).
+ *
+ * @param[in] str        String to search.
+ * @param[in] sub        Substring / query term.
+ * @param[in] punct_norm Non-zero for Google-like punctuation normalization.
+ *
+ * @return Score 0 to 4.
+ */
+int hyle_ci_match_score(const char *str, const char *sub, int punct_norm);
+
 /*
  * Filter rows: emit matching row IDs to output->row_hd.
  * Edits: output->row_hd written, output->fields_hd set to input->fields_hd.

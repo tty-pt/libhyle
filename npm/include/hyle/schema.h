@@ -102,6 +102,8 @@ typedef struct hyle_schema_desc {
 	const char *derive_key;
 	/** Non-zero when new entries may be added through this field. */
 	int allow_add;
+	/** Custom search ranking weight (0 = auto). */
+	int search_weight;
 } hyle_schema_desc_t;
 
 /** Alias for hyle_schema_desc_t. */

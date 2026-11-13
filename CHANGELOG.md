@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.0] - 2026-11-13
 
 ### Added
+- **Field-Weighted Search Ranking (`src/registry.c`, `src/view.c`)**:
+  - Implemented field relevance scoring in `prefilter_q()` prioritizing exact and prefix matches on primary display fields (`title`, `name`, `id`) over secondary references and content/chords.
+  - Added `hyle_ci_match_score()` to compute precision tiers (exact: 10x, prefix: 4x, word-boundary: 2x, substring: 1x).
+  - Added optional `search_weight` to `hyle_field_t` and `hyle_schema_desc_t` for custom field weight configuration.
 - **Sovereign Design System Styles (`htdocs/hyle.css`)**:
   - Added comprehensive CSS styling rules for Hyle data tables, filters, forms, and pickers.
 
