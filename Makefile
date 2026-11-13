@@ -9,6 +9,7 @@ libhyle-obj-y := src/ctx.o src/value.o src/query.o src/view.o src/field.o src/bl
 LDLIBS-hyle_test := -lhyle -llemma -lcorm
 
 WASM_SRCS := npm/wasm/hyle_wasm.c
+WASM_LDFLAGS := -mexec-model=reactor -Wl,--gc-sections -Wl,--no-entry -Wl,--allow-undefined -Wl,--import-memory
 
 include ../mk/include.mk
 

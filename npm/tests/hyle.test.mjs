@@ -73,3 +73,46 @@ test("generateTypeScriptTypes outputs clean TypeScript interfaces from schema", 
   assert.ok(tsCode.includes("credits: number;"));
   assert.ok(tsCode.includes("notes?: string;"));
 });
+
+// The native addon (build/Release/hyle_node.node) answers first when present,
+// which hides defects in dist/hyle.wasm (e.g. a module that defines its own
+// memory instead of importing the shared substrate memory reads every value as
+// empty, so valid rows fail "required"). Copy dist/ somewhere with no native
+// build beside it so validateRow is forced onto the WebAssembly path.
+test("validateRow via WebAssembly (no native addon) agrees with the C purify rules", async () => {
+  const { mkdtempSync, mkdirSync, copyFileSync, rmSync, existsSync } = await import("node:fs");
+  const { join, dirname } = await import("node:path");
+  const { fileURLToPath, pathToFileURL } = await import("node:url");
+  const { tmpdir } = await import("node:os");
+  const { spawnSync } = await import("node:child_process");
+
+  const npmDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const sandbox = mkdtempSync(join(npmDir, ".wasm-only-"));
+  try {
+    mkdirSync(join(sandbox, "dist"));
+    for (const f of ["index.js", "hyle.wasm"]) copyFileSync(join(npmDir, "dist", f), join(sandbox, "dist", f));
+    assert.ok(!existsSync(join(sandbox, "build")), "sandbox must have no native addon");
+
+    const script = `
+      import { HyleSchema } from ${JSON.stringify(pathToFileURL(join(sandbox, "dist", "index.js")).href)};
+      const s = new HyleSchema([
+        { name: "id", required: true, minLength: 3 },
+        { name: "email", required: true, pattern: "^[^@]+@[^@]+$" },
+      ]);
+      console.log(JSON.stringify({
+        valid: s.validate({ id: "usr_1", email: "test@example.com" }),
+        short: s.validate({ id: "u", email: "test@example.com" }),
+        empty: s.validate({}),
+      }));`;
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], { cwd: sandbox, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout.trim());
+
+    assert.equal(out.valid.valid, true, "non-empty valid row must validate through WASM: " + JSON.stringify(out.valid));
+    assert.ok(out.short.errors.some((e) => e.field === "id" && e.rule === "minLength"));
+    assert.ok(out.empty.errors.some((e) => e.field === "id" && e.rule === "required"));
+    assert.ok(out.empty.errors.some((e) => e.field === "email" && e.rule === "required"));
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});

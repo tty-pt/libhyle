@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-11-13
+
+### Fixed
+- **`hyle.wasm` imported no shared memory (`Makefile`)**: the 1.7.0 tarball shipped a `hyle.wasm` that
+  defined its own private linear memory. `validateRow` copies strings into the Stele substrate memory, so
+  the module read every value as empty and rejected valid rows with `required` whenever the native addon
+  was absent (browsers, and Node without a prebuilt addon). Restored the `--import-memory` reactor link
+  (`env.memory`), byte-identical to the 1.6.x binary.
+- Added a WASM-only regression test (`tests/hyle.test.mjs`) that runs `validateRow` with no native addon.
+
 ## [1.7.0] - 2026-11-13
 
 ### Added
