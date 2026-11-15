@@ -12,8 +12,8 @@ export function getHyleWasm() {
 /**
  * Validates a row against hyle field descriptors strictly using C hyle_wasm_validate_field via WebAssembly
  */
-export function validateRow(fields, values) {
-  if (nativeBinding && nativeBinding.purifyRow) {
+export function validateRow(fields, values, options = {}) {
+  if (!options.wasm && nativeBinding && nativeBinding.purifyRow) {
     return nativeBinding.purifyRow(fields, values);
   }
 
