@@ -81,7 +81,9 @@ cc catalog_demo.c $(pkg-config --cflags --libs hyle) -o catalog_demo
 | **Reference** | `HYLE_FIELD_REF` | Foreign key referencing another dataset's primary key |
 | **Blob** | `HYLE_FIELD_BLOB` | Raw opaque binary data with length prefix |
 
-*Attributes: `.required = 1` (must be present on write), `.writable = 1` (editable by user), `.searchable = 1` (lexically indexed for `q=` queries).*
+*Attributes: `.required = 1` (must be present on write), `.writable = 1` (editable by user), `.searchable = 1` (lexically indexed for `q=` queries), `.search_weight = N` (optional custom field relevance multiplier for search ranking; primary display fields `title`, `name`, `id` automatically receive boosted precision tiers).*
+
+*Design System Styles: `htdocs/hyle.css` provides canonical stylesheet rules for Hyle data tables, filters, forms, and pickers.*
 
 ---
 
