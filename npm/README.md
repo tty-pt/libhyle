@@ -11,15 +11,19 @@
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-Reactor-654FF0?logo=webassembly)](#)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)](#)
 
-> Universal Node.js and Browser bindings for **`libhyle`**, the pure-C schema descriptor and row-level data purification engine. Features TypeScript-first declarative schema definitions, isomorphic form validation, and automated TypeScript codegen.
+> Universal Node.js and Browser bindings for **`libhyle`**, the pure-C schema descriptor and row-level data purification engine. Features TypeScript-first declarative schema definitions, isomorphic form validation, and automated TypeScript codegen. Canonical C header: `<hyle/hyle.h>`.
+
+📖 **Full C & Schema Engine Documentation**: See the main [**libhyle GitHub README**](https://github.com/tty-pt/libhyle#readme) for `hyle_schema_desc_t` field macros, row purification rules, and C API details.
 
 ---
 
-## 1. Quickstart
+## 1. Quickstart & Installation
 
 ```bash
 npm install @tty-pt/hyle
 ```
+
+**Native OS Packages (`tty.pt`)**: Prebuilt native C packages (`libhyle`) for Linux (`apt`, `apk`, `pacman`, `dnf`), macOS (`brew`), Windows (`winget`, MSYS2), and OpenBSD (`pkg_add`) are available via the [**tty.pt package repositories**](https://github.com/tty-pt/ci/blob/main/docs/install.md).
 
 ```typescript
 import { defineSchema, createFormValidator } from "@tty-pt/hyle";
@@ -118,13 +122,15 @@ Returns the WebAssembly instance loaded on the Stele shared-memory substrate.
 
 ---
 
-## 6. Building from Source
+## 6. C Development Headers & Native Integration
 
-```bash
-make npm-build    # Compiles native addon and WASM reactor
-make npm-test     # Runs verification test suite
+```makefile
+CFLAGS += -I./node_modules/@tty-pt/hyle/include
+LDLIBS += -lhyle
 ```
+
+---
 
 ## License
 
-BSD 2-Clause License. Copyright (c) 2026, tty-pt.
+BSD-2-Clause — Copyright (c) 2026, Paulo Quirino <quirinpa@gmail.com>. See [LICENSE](https://github.com/tty-pt/libhyle/blob/main/LICENSE).
