@@ -923,51 +923,59 @@ static int token_label_matches(
 	return label && (punct_norm ? hyle_ci_substr_punct(label, q) : hyle_ci_substr(label, q));
 }
 
-static int stored_labels_match(
-        const registry_entry_t *target, const char *stored, const char *df,
-        const char *q, int punct_norm)
+
+static int get_field_weight(const registry_entry_t *e, size_t fi)
 {
-	const char *p;
+	const hyle_field_t *f = &e->fields[fi];
+	if (f->search_weight > 0)
+		return f->search_weight;
 
-	p = stored;
-	while (*p) {
-		const char *nl;
-		char token[256];
-		size_t n;
+	const char *df = display_field_of(e);
+	if (df && f->name && strcmp(f->name, df) == 0)
+		return 100;
 
-		nl = strchr(p, '\n');
-		n = nl ? (size_t)(nl - p) : strlen(p);
-		if (n >= sizeof(token))
-			n = sizeof(token) - 1;
-		if (n > 0) {
-			memcpy(token, p, n);
-			token[n] = '\0';
-			if (token_label_matches(target, token, df, q, punct_norm))
-				return 1;
-		}
-		if (!nl)
-			break;
-		p = nl + 1;
-	}
-	return 0;
+	if (f->name && (strcmp(f->name, "title") == 0 || strcmp(f->name, "name") == 0))
+		return 100;
+
+	if (f->name && (strcmp(f->name, "author") == 0 || strcmp(f->name, "type") == 0))
+		return 30;
+
+	if (f->type == HYLE_FIELD_REFERENCE || f->type == HYLE_FIELD_MULTI_REFERENCE)
+		return 30;
+
+	if (f->type == HYLE_FIELD_DERIVED)
+		return 15;
+
+	if (f->name && (strcmp(f->name, "data") == 0 || strcmp(f->name, "chords") == 0 ||
+	                strcmp(f->name, "lyrics") == 0 || strcmp(f->name, "content") == 0))
+		return 5;
+
+	return 20;
 }
 
-static int row_matches_q(
+static int row_score_q(
         const registry_entry_t *e, const char *row_id, const char *q, int punct_norm)
 {
+	int total_score = 0;
 	size_t i;
 
-	if (punct_norm ? hyle_ci_substr_punct(row_id, q) : hyle_ci_substr(row_id, q))
-		return 1;
+	int id_prec = hyle_ci_match_score(row_id, q, punct_norm);
+	if (id_prec > 0) {
+		total_score += 40 * id_prec;
+	}
+
 	for (i = 0; i < e->field_count; i++) {
 		const hyle_field_t *f = &e->fields[i];
 		char key[1024];
-		const char *stored;
+		const char *stored = NULL;
 		const registry_entry_t *target;
 		const char *df;
 
 		if (!f->name)
 			continue;
+
+		int base_weight = get_field_weight(e, i);
+
 		if (f->type == HYLE_FIELD_DERIVED) {
 			const void *def = e->user;
 			stored = hyle_derive_call(def, f->derive_key, row_id, f->name, NULL);
@@ -975,23 +983,69 @@ static int row_matches_q(
 			snprintf(key, sizeof(key), "%s:%s", row_id, f->name);
 			stored = (const char *)corm_get(e->fields_hd, key);
 		}
-		if (stored && (punct_norm ? hyle_ci_substr_punct(stored, q) : hyle_ci_substr(stored, q)))
-			return 1;
+
+		if (stored && *stored) {
+			int prec = hyle_ci_match_score(stored, q, punct_norm);
+			if (prec > 0) {
+				total_score += base_weight * prec;
+			}
+		}
+
 		if (f->type != HYLE_FIELD_REFERENCE &&
 		    f->type != HYLE_FIELD_MULTI_REFERENCE)
 			continue;
-		if (!f->target_source || !f->target_source[0] || !stored)
+		if (!f->target_source || !f->target_source[0] || !stored || !*stored)
 			continue;
+
 		target = find_entry(f->target_source);
 		if (!target)
 			continue;
 		df = display_field_of(target);
 		if (!df)
 			continue;
-		if (stored_labels_match(target, stored, df, q, punct_norm))
-			return 1;
+
+		const char *p = stored;
+		while (*p) {
+			const char *nl;
+			char token[256];
+			size_t n;
+
+			nl = strchr(p, '\n');
+			n = nl ? (size_t)(nl - p) : strlen(p);
+			if (n >= sizeof(token))
+				n = sizeof(token) - 1;
+			if (n > 0) {
+				memcpy(token, p, n);
+				token[n] = '\0';
+				const char *lbl = ref_token_label(target, token, df);
+				if (lbl && *lbl) {
+					int prec = hyle_ci_match_score(lbl, q, punct_norm);
+					if (prec > 0) {
+						total_score += base_weight * prec;
+					}
+				}
+			}
+			if (!nl)
+				break;
+			p = nl + 1;
+		}
 	}
-	return 0;
+
+	return total_score;
+}
+
+typedef struct {
+	char id[128];
+	int score;
+} hyle_score_entry_t;
+
+static int hyle_score_cmp_desc(const void *a, const void *b)
+{
+	const hyle_score_entry_t *ea = (const hyle_score_entry_t *)a;
+	const hyle_score_entry_t *eb = (const hyle_score_entry_t *)b;
+	if (eb->score != ea->score)
+		return eb->score - ea->score;
+	return strcmp(ea->id, eb->id);
 }
 
 static unsigned prefilter_q(
@@ -1001,20 +1055,48 @@ static unsigned prefilter_q(
 	uint32_t cur;
 	const void *k;
 	const void *v;
+	uint32_t count;
 
 	if (!q || !*q || !base_hd)
 		return 0;
-	q_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
-	if (!q_hd)
-		return 0;
-	cur = corm_iter(base_hd, NULL, 0);
-	while (corm_next(&k, &v, cur)) {
-		const char *rid = (const char *)k;
 
-		if (row_matches_q(e, rid, q, 1))
-			corm_put(q_hd, rid, "");
+	count = corm_count(base_hd, NULL);
+	if (count == 0)
+		return 0;
+
+	hyle_score_entry_t *entries = (hyle_score_entry_t *)malloc(count * sizeof(hyle_score_entry_t));
+	if (!entries)
+		return 0;
+
+	uint32_t matched = 0;
+	cur = corm_iter(base_hd, NULL, 0);
+	while (corm_next(&k, &v, cur) && matched < count) {
+		const char *rid = (const char *)k;
+		int score = row_score_q(e, rid, q, 1);
+		if (score > 0) {
+			snprintf(entries[matched].id, sizeof(entries[matched].id), "%s", rid);
+			entries[matched].score = score;
+			matched++;
+		}
 	}
 	corm_fin(cur);
+
+	q_hd = corm_open(NULL, NULL, CM_STR, CM_STR, 0xFF, 0);
+	if (!q_hd) {
+		free(entries);
+		return 0;
+	}
+
+	if (matched > 0) {
+		qsort(entries, matched, sizeof(hyle_score_entry_t), hyle_score_cmp_desc);
+		for (uint32_t i = 0; i < matched; i++) {
+			char sbuf[16];
+			snprintf(sbuf, sizeof(sbuf), "%08d", entries[i].score);
+			corm_put(q_hd, entries[i].id, sbuf);
+		}
+	}
+
+	free(entries);
 	return q_hd;
 }
 
