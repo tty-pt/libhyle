@@ -9,6 +9,8 @@
 #include <ttypt/corm.h>
 #include <ttypt/lemma.h>
 
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 static int failures = 0;
 static int total = 0;
 

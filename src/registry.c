@@ -913,17 +913,6 @@ static const char *ref_token_label(
 	return (const char *)corm_get(target->fields_hd, key);
 }
 
-static int token_label_matches(
-        const registry_entry_t *target, const char *token, const char *df,
-        const char *q, int punct_norm)
-{
-	const char *label;
-
-	label = ref_token_label(target, token, df);
-	return label && (punct_norm ? hyle_ci_substr_punct(label, q) : hyle_ci_substr(label, q));
-}
-
-
 static int get_field_weight(const registry_entry_t *e, size_t fi)
 {
 	const hyle_field_t *f = &e->fields[fi];
